@@ -5,6 +5,33 @@ Bu projedeki dikkate değer değişiklikler bu dosyada belgelenir.
 Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/) standardına,
 sürümleme [Semantic Versioning](https://semver.org/lang/tr/) kurallarına uyar.
 
+## [1.3.0] - 2026-07-06
+
+### Eklendi
+
+- **Parser, GİB şablonunun entegratör varyasyonlarını tanıyor** (gerçek
+  örnek faturalarla doğrulandı — pazaryeri, telekom ve eLogo çıkışlı):
+  - "e-Arşiv Fatura" başlıklı belgeler (yalnızca "e-FATURA" değil)
+  - İki nokta üst üste olmayan etiketler ("Fatura No  EAR2026…")
+  - "Fatura Tarihi" etiketi ve "09 - 05 - 2026" gibi boşluklu tarihler
+  - Bitişik sayı-birim yazımı ("1,0Adet 183,21TL", "% 20,00")
+  - "Mal / Hizmet Toplam Tutarı" (bölü işaretli) toplam etiketleri
+  - Birimsiz kalem satırları; sütun taşmasıyla bölünen tutar sütunu
+    (tutar miktar × birim fiyattan hesaplanır)
+  - Kalem satırındaki satır içi açıklama/stok kodu artık açıklamaya dahil
+
+### Düzeltildi
+
+- Satıcı/alıcı VKN-TCKN ayrımı artık konuma göre (SAYIN öncesi satıcı,
+  sonrası alıcı): kurumsal satıcı + şahıs alıcı faturalarında iki taraf
+  ters atanıyordu
+- Boş "Vergi Dairesi:" etiketi sağ sütundaki metni değer sanmıyor
+- Alıcı adı iki kez basılan şablonlarda unvan tekrarlanmıyor
+- Adres satırındaki "No:74" gibi ifadeler kalem tablosu başlığı sanılıp
+  açıklamaya sayfa başlığının karışmasına yol açıyordu
+- Kök dizindeki deneme PDF'leri `.gitignore`'a eklendi (kişisel veri
+  içeren gerçek faturalar yanlışlıkla commit'lenmesin)
+
 ## [1.2.0] - 2026-07-06
 
 ### Eklendi
@@ -82,6 +109,7 @@ sürümleme [Semantic Versioning](https://semver.org/lang/tr/) kurallarına uyar
 - **Windows kurulum paketi**: sürüm eklerinde yayınlanan, bağımlılıkları
   paketlenmiş zip + etkileşimli kurulum sihirbazı (`KUR.bat`)
 
+[1.3.0]: https://github.com/yusufarbc/efatura-irsaliye-arsivi/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/yusufarbc/efatura-irsaliye-arsivi/compare/v1.1.2...v1.2.0
 [1.1.2]: https://github.com/yusufarbc/efatura-irsaliye-arsivi/compare/v1.1.1...v1.1.2
 [1.1.1]: https://github.com/yusufarbc/efatura-irsaliye-arsivi/compare/v1.1.0...v1.1.1

@@ -1,0 +1,51 @@
+ÖRNEK ELEKTRONİK MEHMET ÖRNEK
+Örnek Mah. Deneme sokak Örnek İşmerkezi
+no:3/6 No:
+ Örnekilçe/ İstanbul
+Tel: (555) 111 22 33
+Web Sitesi: www.ornekpazar.example
+E-Posta: info@ornekelektronik.example
+Vergi Dairesi: Örnek Dairesi
+TCKN: 98765432109
+
+
+SAYIN                                                      e-Arşiv Fatura
+Ali Veli DENEME
+Örnek Sok. A1 2.Blok No:5 İç Kapı No: 3                                           Özelleştirme No           TR1.2
+ÖRNEKMAH ÖRNEKİLÇE Örnekşehir No:                                                 Senaryo                   EARSIVFATURA
+
+55000 ÖRNEKİLÇE/ Örnekşehir Türkiye                                               Fatura Tipi               SATIS
+Web Sitesi: www.ornekpazar.example                                                Fatura No                 EAR2026000009999
+E-Posta:
+                                                                                  Fatura Tarihi             09 - 05 - 2026 18:31
+1234567_8901@ornekfatura.example
+Tel:
+Vergi Dairesi: ÖRNEKVERGİ
+VKN: 1234567890
+
+ETTN: 1e972c66-fee0-455d-a524-d857ebf8d82e
+
+  Sıra                                                 Satıcı Ürün                      Birim        KDV      KDV        Mal Hizmet
+         Mal Hizmet                                                     Miktar
+   No                                                  Kodu                             Fiyat       Oranı    Tutarı           Tutarı
+
+         Örnek Ürün Bir Güç Çevirici
+ 1                                                    XY1000001        1,0Adet 100,0000TL          %20,00   20,00TL         100,00TL
+
+         Örnek Ürün İki uzatma
+ 2                                                     XY1000002     1,0Adet         200,00TL      %20,00   40,00TL         200,00TL
+
+                                                                                            Mal Hizmet Toplam Tutarı          300,00TL
+
+                                                                                                       Toplam İskonto              0,00TL
+
+                                                                                                  Hesaplanan KDV(%20)          60,00TL
+
+                                                                                         Vergiler Dahil Toplam Tutar          360,00TL
+
+                                                                                                       Ödenecek Tutar         360,00TL
+
+
+YALNIZ: ÜÇ YÜZ ALTMIŞ TL.
+İrsaliye yerine geçer
+e-Arşiv izni kapsamında elektronik ortamda iletilmiştir.

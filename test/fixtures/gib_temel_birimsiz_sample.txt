@@ -1,0 +1,57 @@
+Örnek Telekom Hizmetleri A.Ş.
+Örnek Cad. Deneme Plaza No:1 Kapı
+No:A/1
+34000 Örnekilçe/ İstanbul / Türkiye
+Tel: 0850 000 00 00 Fax: 0212 000 00 00
+Web Sitesi: http://www.ornektelekom.example
+E-Posta: efatura@ornektelekom.example
+Vergi Dairesi: Örnek Kurumlar
+VKN: 1111111111
+                                                                     e-FATURA
+
+
+
+SAYIN
+ALİ VELİ DENEME
+ALİ VELİ DENEME
+ÖRNEK MAH. 1234 SK. NO: 1 DAİRE: 1 ÖRNEK/İL
+xxxx No:
+Kapı No:
+55000 ÖRNEK/ İl Türkiye
+E-Posta:
+                                                                                            Özelleştirme No:        TR1.2
+Tel: Fax:
+Vergi Dairesi:                                                                              Senaryo:                TEMELFATURA
+TCKN: 22222222222                                                                           Fatura Tipi:            SATIS
+HIZMETNO: 1234567                                                                           Fatura No:              ADU2026000000001
+                                                                                            Fatura Tarihi:          20-03-2026
+ETTN: be730da7-916d-41f6-adcb-8dcae0118932
+
+
+
+                                                          İskonto/   İskonto/   İskonto/                                                    Mal
+Sıra                                           Birim                                       KDV
+            Mal Hizmet            Miktar                  Arttırım   Arttırım   Arttırım            KDV Tutarı     Diğer Vergiler          Hizmet
+ No                                            Fiyat                                       Oranı
+                                                            Oranı     Tutarı     Nedeni                                                    Tutarı
+                                                                                                                                           500,00
+1      Örnek Fiber Paket                    1   500,0 TL                                   %20,00      100,00 TL   OIV (%10,00)=40,00 TL
+                                                                                                                                               TL
+
+
+
+
+                                                                                                    Mal Hizmet Toplam Tutarı          500,00 TL
+                                                                                                              Toplam İskonto               0,00 TL
+                                                                                                       Hesaplanan KDV(%20)            100,00 TL
+                                                                                                       Hesaplanan OIV(%10)             40,00 TL
+                                                                                               Vergiler Dahil Toplam Tutar            640,00 TL
+                                                                                                             Yuvarlama Farkı               0,00 TL
+                                                                                                             Ödenecek Tutar           640,00 TL
+
+
+
+    Not: Örnek kampanya notu satırı
+         Yalnız:altıyüzkırk TL
+         Fatura Dönemi:Mart-2026
+    Ödeme Koşulu: Son Ödeme Tarihi:10.04.2026

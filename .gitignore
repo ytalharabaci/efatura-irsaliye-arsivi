@@ -14,3 +14,8 @@ src/server/daemon/
 # paketleme çıktıları
 /dist/
 *.log
+
+# kök dizine bırakılan deneme faturaları (kişisel veri içerir, repoya girmesin)
+/*.pdf
+/*.Pdf
+/*.PDF
