@@ -5,6 +5,30 @@ Bu projedeki dikkate değer değişiklikler bu dosyada belgelenir.
 Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/) standardına,
 sürümleme [Semantic Versioning](https://semver.org/lang/tr/) kurallarına uyar.
 
+## [1.4.0] - 2026-07-14
+
+### Eklendi
+
+- **Tek PDF'te birden fazla e-Fatura desteği**: art arda eklenmiş faturalar
+  içeren dosyalar sayfa (form feed) bazında belgelere ayrılır, her fatura
+  ayrı kayıt olarak işlenir (`src/ingest/splitDocuments.js`). Kimliksiz
+  taşma sayfaları (IBAN dipnotu vb.) ait oldukları belgede kalır; çok
+  sayfalı tek fatura bölünmez. CLI çıktısı, `/api/upload` yanıtı
+  (`belgeler` dizisi) ve panel yükleme tablosu belge başına sonuç gösterir.
+- **İskonto sütunlu ticari fatura şablonu** (gerçek çok faturalı örnekle
+  doğrulandı):
+  - "SA YIN" gibi harf aralığı boşlukları, ":" ayraçlı toplam etiketleri
+  - Birden çok "Hesaplanan KDV(%X)" satırı toplanır (çok oranlı faturalar)
+  - Dikey hizalama bozulmasıyla komşu satırlara dağılan KDV/tutar hücreleri
+    tamamlanır (eksik değer %oran üzerinden türetilir)
+  - "Takım" ve "M" (metre) birimleri; birim hücresi alt satıra taşan
+    kalemler ("80.000 / Adet")
+  - Açıklama satırlarına karışan taşma hücreleri (yalnız sayı/TL sütunları)
+    ayıklanır
+- **`documents.toplam_iskonto` kolonu** (migration 0002): belge geneli
+  iskonto saklanır; doğrulama, kalem tutarları iskontolu + başlık toplamı
+  iskontosuz yazan şablonları artık ŞÜPHELİ saymaz.
+
 ## [1.3.0] - 2026-07-06
 
 ### Eklendi

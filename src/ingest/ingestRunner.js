@@ -47,17 +47,24 @@ async function run() {
 
     const sonuc = await ingestPdf(db, pdfPath, kaynak_dosya);
 
-    if (sonuc.durum === 'TANINMAYAN') {
-      console.log('TANINMAYAN (hiçbir extractor eşleşmedi)');
-      stats.taninmayan++;
-      taninmayanlar.push(kaynak_dosya);
-    } else if (sonuc.durum === 'HATALI') {
-      console.log(`HATA: ${sonuc.mesaj}`);
-      stats.hatali++;
-    } else {
-      console.log(`${sonuc.durum} (${sonuc.kalem_sayisi} kalem)`);
-      if (sonuc.durum === 'BASARILI') stats.basarili++;
-      else stats.supheli++;
+    // Bir dosyada birden çok belge olabilir — istatistik belge başına tutulur.
+    const belgeler = sonuc.belgeler && sonuc.belgeler.length ? sonuc.belgeler : [sonuc];
+    if (belgeler.length > 1) console.log(`${belgeler.length} belge bulundu`);
+
+    for (const belge of belgeler) {
+      const onek = belgeler.length > 1 ? `   - ${belge.belge_no ?? belge.ettn ?? '?'}: ` : '';
+      if (belge.durum === 'TANINMAYAN') {
+        console.log(`${onek}TANINMAYAN (hiçbir extractor eşleşmedi)`);
+        stats.taninmayan++;
+        if (!taninmayanlar.includes(kaynak_dosya)) taninmayanlar.push(kaynak_dosya);
+      } else if (belge.durum === 'HATALI') {
+        console.log(`${onek}HATA: ${belge.mesaj}`);
+        stats.hatali++;
+      } else {
+        console.log(`${onek}${belge.durum} (${belge.kalem_sayisi} kalem)`);
+        if (belge.durum === 'BASARILI') stats.basarili++;
+        else stats.supheli++;
+      }
     }
   }
 

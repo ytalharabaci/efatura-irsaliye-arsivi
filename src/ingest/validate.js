@@ -14,7 +14,13 @@ function validateDocument(header, items) {
   const itemKdv = items.reduce((sum, it) => sum + (it.kdv_tutari || 0), 0);
 
   if (header.mal_hizmet_toplam_tutari != null) {
-    const diff = Math.abs(itemTotal - header.mal_hizmet_toplam_tutari);
+    // Belge geneli iskonto varsa bazı şablonlar kalem tutarlarını iskontolu,
+    // başlık toplamını iskontosuz yazar — iki yorum da tutarlı sayılır.
+    const iskonto = header.toplam_iskonto || 0;
+    const diff = Math.min(
+      Math.abs(itemTotal - header.mal_hizmet_toplam_tutari),
+      Math.abs(itemTotal - (header.mal_hizmet_toplam_tutari - iskonto))
+    );
     if (diff > TOLERANCE) {
       notlar.push(
         `Kalem toplamı (${itemTotal.toFixed(2)}) ≠ header mal_hizmet_toplam_tutari (${header.mal_hizmet_toplam_tutari.toFixed(2)}), fark: ${diff.toFixed(2)} TL`

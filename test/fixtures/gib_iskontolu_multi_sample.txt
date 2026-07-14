@@ -1,0 +1,361 @@
+    ÖRNEKÇOĞLU HIR.NAL. MOB. AKS.İNŞ.SAN.VE TİC.LTD.ŞTİ.
+    Örnek Mahalle 1.Sk. No:No:1/2  
+    06000 ÖRNEKKÖY/ ANKARA
+    Tel                    : 312 000 00 00
+    E-posta                : ornek_tic55@example.com 
+    Vergi Dairesi          : ÖRNEK BAŞKENT VERGİ DAİRESİ                      e-Fatura
+    VKN                    : 1111111111
+    Mersis No              : 0111111111100001
+    Ticaret Sicil No       : 12345
+                                                                                                 e-Fatura
+    SA YIN
+    AL-SAT GIDA TARIM ÜRÜNLERİ VE TAŞ. TİC. LTDİ ŞTİ.                                            Özelleştirme No    : TR1.2
+    ÖRNEK MAH DENEME SOKAK CAD. NO:1/A                                                           Senaryo            : TICARIFATURA
+    06000 Örnek, Çankaya /Ankara                                                                 Fatura Tipi        : SATIS
+    TÜRKİYE                                                                                      Fatura No          : ORN2026000000016
+                                                                                                 Fatura Tarihi      : 09- 01- 2026 10:07:32
+    Vergi Dairesi       : ÇANKAYA                                                                İrsaliye No        : 000040930
+    VKN                 : 2222222220                                                             İrsaliye Tarihi    : 09-01-2026
+
+ETTN                   : 00000000-0000-4000-8000-000000000001
+
+
+
+
+           Malzeme /
+    Sıra    Hizmet   Malzeme / Hizmet A çıklaması       Miktar      Birim Fiyat     İskonto     İskonto     KDV Oranı KDV Tutarı      Malzeme / Hizmet
+     No      Kodu                                                                    Oranı       Tutarı                                    Tutarı
+
+1          CMC3518 BAĞ TESTERESİ    EĞRİ KILIFLI          12 Adet      85,0000 TL                             %20,00      173,40                 867,00 TL
+                         BUDAMA CMC 3515                                                                                      TL
+                                                                                                                          367,20
+2          MLX1184    SELÜLO ZİK TİNER 3/1 LT             24 Adet      90,0000 TL                             %20,00          TL               1.836,00 TL
+                       SENTETİK TİNER 3/1 LT                                                                              688,50
+3          MLX1188         KÜÇÜK GALO N                   30 Adet    135,0000 TL                              %20,00          TL               3.442,50 TL
+4          MLX1189     SENTETİK TİNER 5/1 LT              36 Adet    220,0000 TL                              %20,00    1.346,40               6.732,00 TL
+                           BÜYÜK GALO N                                                                                       TL
+           MLX6092 SİLİKO
+                           N FİX ALL HIGH TACK                                                                          1.938,00
+5                        SEALANT SLIMFLEX                120 Adet      95,0000 TL                             %20,00          TL               9.690,00 TL
+                       VANTUZ HAVA PO MPALI
+6           507621      BASINÇ GÖ STERGELİ                 5 Adet   1.250,0000 TL                             %20,00    1.062,50               5.312,50 TL
+                                                                                                                              TL
+                              MASTER
+7           507620     VANTUZ HAVA PO MPALI                5 Adet   1.150,0000 TL                             %20,00      977,50               4.887,50 TL
+                              MASTER                                                                                          TL
+
+
+                                                                              Mal / Hizmet Toplam Tutarı                      :               38.550,00 TL
+                                                                              Toplam İskonto(%15,00)                          :                5.782,50 TL
+                                                                              Toplam Masraf                                   :
+                                                                              Hesaplanan KDV(%20,00)                          :                6.553,50 TL
+                                                                              Vergiler Dahil Toplam Tutar                     :               39.321,00 TL
+                                                                              Ödenecek Tutar                                  :               39.321,00 TL
+
+
+
+
+            Genel A çıklamalar
+            # Yalnız O tuzDok uzBinÜçYüzYirm iBir TL #
+
+            Örnek Bankası 
+            IBAN: TR 0000 0000 0000 0000 0000 0001
+    ÖRNEKÇOĞLU HIR.NAL. MOB. AKS.İNŞ.SAN.VE TİC.LTD.ŞTİ.
+    Örnek Mahalle 1.Sk. No:No:1/2  
+    06000 ÖRNEKKÖY/ ANKARA
+    Tel                    : 312 000 00 00
+    E-posta                : ornek_tic55@example.com 
+    Vergi Dairesi          : ÖRNEK BAŞKENT VERGİ DAİRESİ                      e-Fatura
+    VKN                    : 1111111111
+    Mersis No              : 0111111111100001
+    Ticaret Sicil No       : 12345
+                                                                                                 e-Fatura
+    SA YIN
+    AL-SAT GIDA TARIM ÜRÜNLERİ VE TAŞ. TİC. LTDİ ŞTİ.                                            Özelleştirme No    : TR1.2
+    ÖRNEK MAH DENEME SOKAK CAD. NO:1/A                                                           Senaryo            : TICARIFATURA
+    06000 Örnek, Çankaya /Ankara                                                                 Fatura Tipi        : SATIS
+    TÜRKİYE                                                                                      Fatura No          : ORN2026000000067
+                                                                                                 Fatura Tarihi      : 28- 01- 2026 12:18:57
+    Vergi Dairesi       : ÇANKAYA                                                                İrsaliye No        : 000041322
+    VKN                 : 2222222220                                                             İrsaliye Tarihi    : 28-01-2026
+
+ETTN                   : 00000000-0000-4000-8000-000000000002
+
+
+
+
+           Malzeme /
+    Sıra    Hizmet   Malzeme / Hizmet A çıklaması       Miktar      Birim Fiyat     İskonto     İskonto     KDV Oranı KDV Tutarı      Malzeme / Hizmet
+     No      Kodu                                                                    Oranı       Tutarı                                    Tutarı
+
+1           505210       KO Lİ BANDI ŞEFFAF 40 MT        96 Adet       28,0000 TL                             %20,00       456,96              2.284,80 TL
+                                                                                                                               TL
+2          MLX6083 SİLİKO N FİX ALL HIGH TACK           480 Adet      135,0000 TL                             %20,00 11.016,00                55.080,00 TL
+                                                                                                                            TL
+                                                                                                                        163,20
+3          MLX1211         HO RTUM EKİ LÜX 1/2           60 Adet       16,0000 TL                             %20,00                             816,00 TL
+                                                                                                                            TL
+4          MLX1032      FALÇATA MALKO X MLX-115          72 Adet       45,0000 TL                             %20,00    550,80                 2.754,00 TL
+                                                                                                                            TL
+5          MLX1033      FALÇATA MALKO X MLX-122          96 Adet       75,0000 TL                             %20,00 1.224,00
+                                                                                                                            TL                 6.120,00 TL
+                           ELDİVEN ÜNİVERSAL                                                                            795,60
+6          MLX0932                                      144 Adet       65,0000 TL                             %10,00                           7.956,00 TL
+                          KIRCIKLI 6121 NO :10                                                                              TL
+
+
+                                                                              Mal / Hizmet Toplam Tutarı                      :               88.248,00 TL
+                                                                              Toplam İskonto(%15,00)                          :               13.237,20 TL
+                                                                              Toplam Masraf                                   :
+                                                                              Hesaplanan KDV(%10,00)                                             795,60 TL
+                                                                              Hesaplanan KDV(%20,00)                          :               13.410,96 TL
+                                                                              Vergiler Dahil Toplam Tutar                     :               89.217,36 TL
+                                                                              Ödenecek Tutar                                  :               89.217,36 TL
+
+
+
+
+            Genel A çıklamalar
+            # Yalnız Sek senDok uzBinİk iYüzO nYedi TL O tuzAltı k uruş #
+
+            Örnek Bankası 
+            IBAN: TR 0000 0000 0000 0000 0000 0001
+    ÖRNEKÇOĞLU HIR.NAL. MOB. AKS.İNŞ.SAN.VE TİC.LTD.ŞTİ.
+    Örnek Mahalle 1.Sk. No:No:1/2  
+    06000 ÖRNEKKÖY/ ANKARA
+    Tel                    : 312 000 00 00
+    E-posta                : ornek_tic55@example.com 
+    Vergi Dairesi          : ÖRNEK BAŞKENT VERGİ DAİRESİ                            e-Fatura
+    VKN                    : 1111111111
+    Mersis No              : 0111111111100001
+    Ticaret Sicil No       : 12345
+                                                                                                      e-Fatura
+    SA YIN
+    AL-SAT GIDA TARIM ÜRÜNLERİ VE TAŞ. TİC. LTDİ ŞTİ.                                                 Özelleştirme No    : TR1.2
+    ÖRNEK MAH DENEME SOKAK CAD. NO:1/A                                                                Senaryo            : TICARIFATURA
+    06000 Örnek, Çankaya /Ankara                                                                      Fatura Tipi        : SATIS
+    TÜRKİYE                                                                                           Fatura No          : ORN2026000000078
+                                                                                                      Fatura Tarihi      : 30- 01- 2026 11:52:36
+    Vergi Dairesi      : ÇANKAYA                                                                      İrsaliye No        : 000041389
+    VKN                : 2222222220                                                                   İrsaliye Tarihi    : 30-01-2026
+
+ETTN                   : 00000000-0000-4000-8000-000000000003
+
+
+
+
+           Malzeme /
+    Sıra    Hizmet   Malzeme / Hizmet A çıklaması         Miktar        Birim Fiyat        İskonto   İskonto     KDV Oranı KDV Tutarı      Malzeme / Hizmet
+     No      Kodu                                                                           Oranı     Tutarı                                    Tutarı
+
+1           018055   ÇELİK ÇİVİ BEYAZ O LUKLU               40 Kutu           90,0000 TL                           %20,00      612,00               3.060,00 TL
+                               5x 100                                                                                              TL
+                      ÇELİK DUBEL GÖ MLEKLİ                                                                                    255,00
+2           501006            10*110                      100 Adet            15,0000 TL                           %20,00          TL               1.275,00 TL
+            540401 DİZAYN ALÇI
+                                  MALASI 35 CM                                                                                 234,60
+3                            AÇIK SAP                       12 Adet          115,0000 TL                           %20,00          TL               1.173,00 TL
+4           530031       HİLTİ UCU 11*210                   20 Adet           35,0000 TL                           %20,00      119,00                 595,00 TL
+                                                                                                                                   TL
+                                                                                                                               110,50
+5           530152      HİLTİ UCU AHŞAP 12*250              10 Adet           65,0000 TL                           %20,00          TL                 552,50 TL
+                                                                                                                               246,50
+6           530164      HİLTİ UCU AHŞAP 16*500              10 Adet          145,0000 TL                           %20,00          TL               1.232,50 TL
+7           530155      HİLTİ UCU AHŞAP 18*250              10 Adet          100,0000 TL                           %20,00      170,00                 850,00 TL
+                                                                                                                                   TL
+                                                                                                                               170,00
+8           530103       HİLTİ UCU MAX 16*340               10 Adet          100,0000 TL                           %20,00          TL                 850,00 TL
+                                                                                                                               136,00
+9           530709       HSS 5 MM MATKAP UCU              100 Adet             8,0000 TL                           %20,00          TL                 680,00 TL
+10          530715       HSS 8 MM MATKAP UCU                50 Adet           15,0000 TL                           %20,00      127,50                 637,50 TL
+                                                                                                                                   TL
+                                                                                                                               425,00
+11          023805           İP İSKO TA 10 MM                50 KG           100,0000 TL                           %10,00          TL               4.250,00 TL
+                                                                                                                               467,50
+12          500804       İP İSKO TA 8 MM MASTER              55 KG           100,0000 TL                           %10,00          TL               4.675,00 TL
+13          502603   KUM ELEĞİ 20 KG 8 MM                    3 Adet     1.400,0000 TL                              %20,00      714,00               3.570,00 TL
+                                                                                                                                   TL
+14         MLX0512 MAŞALI BO RU ANAHTARI 1 P                 5 Adet          400,0000 TL                           %20,00      340,00               1.700,00 TL
+                     HAKTAŞ DÖ ĞME ÇELİK                                                                                           TL
+15         014500     SÖ KÜ DEMİRİ 100 CM                    20 KG            95,0000 TL                           %20,00      323,00               1.615,00 TL
+                                                                                                                                   TL
+                                                                                                                               184,11
+16         MLX2364         SÖ KÜ DEMİRİ 80 CM              11,4 KG            95,0000 TL                           %20,00          TL                 920,55 TL
+                           YAKAR DEMİR BÜKME                                                                                   276,25
+17          080010           ANAHTARI NO :10                 5 Adet          325,0000 TL                           %20,00          TL               1.381,25 TL
+18          530035          HİLTİ UCU 15*210                10 Adet           55,0000 TL                           %20,00    93,50 TL                 467,50 TL
+19         2001201B        ACAR TEKLİ BATARYA               20 Adet          400,0000 TL                           %20,00    1.360,00               6.800,00 TL
+                             MERMERDEN MİX                                                                                         TL
+
+
+                                                                                   Mal / Hizmet Toplam Tutarı                      :               42.688,00 TL
+                                                                                   Toplam İskonto(%15,00)                          :                6.403,20 TL
+                                                                                   Toplam Masraf                                   :
+                                                                                   Hesaplanan KDV(%10,00)                                             892,50 TL
+                                                                                   Hesaplanan KDV(%20,00)                          :                5.471,96 TL
+                                                                                   Vergiler Dahil Toplam Tutar                     :               42.649,26 TL
+                                                                                   Ödenecek Tutar                                  :               42.649,26 TL
+
+
+
+
+            Genel A çıklamalar
+            # Yalnız Kırk İk iBinAltıYüzKırk Dok uz TL Yirm iAltı k uruş #
+Örnek Bankası 
+IBAN: TR 0000 0000 0000 0000 0000 0001
+    ÖRNEKÇOĞLU HIR.NAL. MOB. AKS.İNŞ.SAN.VE TİC.LTD.ŞTİ.
+    Örnek Mahalle 1.Sk. No:No:1/2  
+    06000 ÖRNEKKÖY/ ANKARA
+    Tel                    : 312 000 00 00
+    E-posta                : ornek_tic55@example.com 
+    Vergi Dairesi          : ÖRNEK BAŞKENT VERGİ DAİRESİ                         e-Fatura
+    VKN                    : 1111111111
+    Mersis No              : 0111111111100001
+    Ticaret Sicil No       : 12345
+                                                                                                    e-Fatura
+    SA YIN
+    AL-SAT GIDA TARIM ÜRÜNLERİ VE TAŞ. TİC. LTDİ ŞTİ.                                               Özelleştirme No    : TR1.2
+    ÖRNEK MAH DENEME SOKAK CAD. NO:1/A                                                              Senaryo            : TICARIFATURA
+    06000 Örnek, Çankaya /Ankara                                                                    Fatura Tipi        : SATIS
+    TÜRKİYE                                                                                         Fatura No          : ORN2026000000188
+                                                                                                    Fatura Tarihi      : 18- 03- 2026 09:45:56
+    Vergi Dairesi       : ÇANKAYA                                                                   İrsaliye No        : 000042389
+    VKN                 : 2222222220                                                                İrsaliye Tarihi    : 18-03-2026
+
+ETTN                   : 00000000-0000-4000-8000-000000000004
+
+
+
+
+           Malzeme /
+    Sıra    Hizmet   Malzeme / Hizmet A çıklaması       Miktar         Birim Fiyat     İskonto     İskonto     KDV Oranı KDV Tutarı      Malzeme / Hizmet
+     No      Kodu                                                                       Oranı       Tutarı                                    Tutarı
+
+1          MLX1003 EPO KSİ  YAPIŞTIRICI 345 ML           24 Adet        115,0000 TL                              %20,00      469,20               2.346,00 TL
+                          KİMYASAL DUBEL                                                                                         TL
+                                                                                                                             214,20
+2           530028        HİLTİ UCU 8*210                30 Adet          42,0000 TL                             %20,00          TL               1.071,00 TL
+                                                                                                                             188,70
+3           505603      KAYNAK PENSESİ 600 A               6 Adet       185,0000 TL                              %20,00          TL                 943,50 TL
+4           MLX1841   MASTAR   ALÜMİNYUM KALIN           20 Adet        225,0000 TL                              %20,00      765,00               3.825,00 TL
+                                2,5 MT                                                                                           TL
+            MLX1842 MASTAR ALÜMİNYUM
+                                            KALIN                                                                            918,00
+5                                3 MT                    20 Adet        270,0000 TL                              %20,00          TL               4.590,00 TL
+                     EPO KSİ YAPIŞTIRICI   345 ML                                                                            408,00
+6           MLX1004     KİMYASAL DUBEL TEKLİ             20 Adet        120,0000 TL                              %20,00          TL               2.040,00 TL
+7            IBLTA11 TIRPAN BAŞLIĞI    O TO MATİK        10 Adet        220,0000 TL                              %20,00      374,00               1.870,00 TL
+                               İBELTECH                                                                                          TL
+                       SO FUO ĞLU  DİKMEN   KARE                                                                           1.496,00
+8           MLX2481         RO Z SİYAH W C              40 Takım        220,0000 TL                              %20,00          TL               7.480,00 TL
+              FLX003 ACAR 3/8*3/8
+                            FLEX BAĞLANTI ÇELİK                                                                            1.530,00
+9                                   - 50 cm             200 Adet          45,0000 TL                             %20,00          TL               7.650,00 TL
+10            FLX005 ACAR 3/8*3/8
+                            FLEX BAĞLANTI ÇELİK         200 Adet          50,0000 TL                             %20,00    1.700,00               8.500,00 TL
+                                    - 70 cm                                                                                      TL
+           900009700 STD SUNTA
+                                  VİDASI 3,5*50                                                                              645,98
+11                              PK.500                   26 Kutu        146,1500 TL                              %20,00          TL               3.229,91 TL
+                      ACAR FLEX BAĞLANTI ÇELİK                                                                               765,00
+12            FLX043   3/8*3/8 - 50 cm NİPELLİ          100 Adet          45,0000 TL                             %20,00          TL               3.825,00 TL
+13            FLX001 ACAR 3/8*3/8
+                            FLEX BAĞLANTI ÇELİK
+                                    - 30 cm              50 Adet          37,5000 TL                             %20,00      318,75
+                                                                                                                                 TL               1.593,75 TL
+14           501112   DERZ ARTISI SEVİYE 2 MM           100 Kutu          37,0000 TL                             %20,00      629,00               3.145,00 TL
+                                100 LÜ                                                                                           TL
+15          MLX0932       ELDİVEN ÜNİVERSAL              60 Adet          67,5000 TL                             %10,00      344,25               3.442,50 TL
+                         KIRCIKLI 6121 NO :10                                                                                    TL
+                                                                                                                             550,80
+16          SV160201 YENAL TIRFIL MALA KISA              24 Adet        135,0000 TL                              %20,00          TL               2.754,00 TL
+                                                                                                                             489,60
+17          540142      DİZAYN DERZ MALASI KISA          24 Adet        120,0000 TL                              %20,00          TL               2.448,00 TL
+
+
+
+                                                                                 Mal / Hizmet Toplam Tutarı                      :               71.474,90 TL
+                                                                                 Toplam İskonto(%15,00)                          :               10.721,24 TL
+                                                                                 Toplam Masraf                                   :
+                                                                                 Hesaplanan KDV(%10,00)                                             344,25 TL
+                                                                                 Hesaplanan KDV(%20,00)                          :               11.462,23 TL
+                                                                                 Vergiler Dahil Toplam Tutar                     :               72.560,14 TL
+                                                                                 Ödenecek Tutar                                  :               72.560,14 TL
+
+
+
+
+            Genel A çıklamalar
+            # Yalnız Yetm işİk iBinBeşYüzAltm ış TL O nDört k uruş #
+
+            Örnek Bankası 
+            IBAN: TR 0000 0000 0000 0000 0000 0001
+    ÖRNEKÇOĞLU HIR.NAL. MOB. AKS.İNŞ.SAN.VE TİC.LTD.ŞTİ.
+    Örnek Mahalle 1.Sk. No:No:1/2  
+    06000 ÖRNEKKÖY/ ANKARA
+    Tel                    : 312 000 00 00
+    E-posta                : ornek_tic55@example.com 
+    Vergi Dairesi          : ÖRNEK BAŞKENT VERGİ DAİRESİ                       e-Fatura
+    VKN                    : 1111111111
+    Mersis No              : 0111111111100001
+    Ticaret Sicil No       : 12345
+                                                                                                    e-Fatura
+    SA YIN
+    AL-SAT GIDA TARIM ÜRÜNLERİ VE TAŞ. TİC. LTDİ ŞTİ.                                               Özelleştirme No   : TR1.2
+    ÖRNEK MAH DENEME SOKAK CAD. NO:1/A                                                              Senaryo           : TICARIFATURA
+    06000 Örnek, Çankaya /Ankara                                                                    Fatura Tipi       : SATIS
+    TÜRKİYE                                                                                         Fatura No         : ORN2026000000201
+                                                                                                    Fatura Tarihi     : 30- 03- 2026 08:32:40
+    Vergi Dairesi       : ÇANKAYA                                                                   İrsaliye No       : 000042599
+    VKN                 : 2222222220                                                                İrsaliye Tarihi   : 30-03-2026
+
+ETTN                   : 00000000-0000-4000-8000-000000000005
+
+
+
+
+    Sıra     Malzeme /            Malzeme / Hizmet                                        İskonto   İskonto                              Malzeme / Hizmet
+     No     Hizmet Kodu              A çıklaması         Miktar       Birim Fiyat          Oranı     Tutarı    KDV Oranı KDV Tutarı           Tutarı
+1            MLX2544     SULUK O RİJİNAL DÖ KÜM             10 Adet    500,0000 TL                               %20,00      850,00              4.250,00 TL
+                                                                                                                                 TL
+2             0804100    ACAR MUSLUK BAŞI LİFE              40 Adet    100,0000 TL                               %20,00      680,00              3.400,00 TL
+                               SERİ KUTULU                                                                                       TL
+                         HAVA KO MPRESÖ RÜ TEK                                                                               459,00
+3              000154           SİLİNDİRLİ                   3 Adet    900,0000 TL                               %20,00          TL              2.295,00 TL
+                            KAMA AĞAÇ KESME                                                                                1.275,00
+4           KAMAKMR25                                        2 Adet   3.750,0000 TL                              %20,00                          6.375,00 TL
+                             BENZİNLİ 25,4CC                                                                                     TL
+5          KAMAKMR46SET     KAMA AĞAÇ KESME                  2 Adet   3.750,0000 TL                              %20,00    1.275,00              6.375,00 TL
+                           MO TO RU SETİ 46CC                                                                                    TL
+                          KAMA BENZİNLİ TIRPAN                                                                             2.295,00
+6            KAMABYT52              YAN                      3 Adet   4.500,0000 TL                              %20,00          TL             11.475,00 TL
+                        CIRT ZIMPARA 225 MM 80                                                                               255,00
+7              503879                                      100 Adet     15,0000 TL                               %20,00                          1.275,00 TL
+                                   KUM                                                                                           TL
+8              SKT060      SİLİKO N TABANCASI               25 Adet    200,0000 TL                               %20,00      850,00              4.250,00 TL
+                           YEKPARE LÜX METAL                                                                                     TL
+                        YAPARLAR İNŞAAT KÜREĞİ                                                                             1.041,25
+9             MLX8390            NO :4160                   25 Adet    245,0000 TL                               %20,00          TL              5.206,25 TL
+                                                                                                                             425,00
+10           MLX1304         HO RTUM SİLİKO NLU 5/8          100 M      25,0000 TL                               %20,00                          2.125,00 TL
+                                                                                                                                 TL
+11          900195700         ALÇIPAN VİDASI SİVRİ          80.000        0,2100 TL                              %20,00    2.856,00             14.280,00 TL
+                                  UÇLU 3,5*25                  Adet                                                              TL
+
+
+                                                                              Mal / Hizmet Toplam Tutarı                        :               72.125,00 TL
+                                                                              Toplam İskonto(%15,00)                            :               10.818,75 TL
+                                                                              Toplam Masraf                                     :
+                                                                              Hesaplanan KDV(%20,00)                            :               12.261,25 TL
+                                                                              Vergiler Dahil Toplam Tutar                       :               73.567,50 TL
+                                                                              Ödenecek Tutar                                    :               73.567,50 TL
+
+
+
+
+            Genel A çıklamalar
+            # Yalnız Yetm işÜçBinBeşYüzAltm ışYedi TL Elli k uruş #
+
+            Örnek Bankası 
+            IBAN: TR 0000 0000 0000 0000 0000 0001
+

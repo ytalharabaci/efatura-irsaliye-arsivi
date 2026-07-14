@@ -394,19 +394,31 @@ async function yukleDosyalar(files) {
       const json = await res.json().catch(() => ({}));
       if (!res.ok && !json.durum) throw new Error(json.error || `Sunucu hatası: ${res.status}`);
 
-      const badge = `<span class="badge badge-${esc(json.durum)}">${esc(json.durum)}</span>`;
-      tr.innerHTML = `
-        <td>${esc(f.name)}</td>
-        <td>${badge}</td>
-        <td>${hucre(json.belge_no)}</td>
-        <td class="num">${json.kalem_sayisi != null ? json.kalem_sayisi : '-'}</td>
-        <td>${hucre(json.mesaj)}</td>`;
-      if (json.document_id) {
-        tr.classList.remove('no-click');
-        tr.addEventListener('click', () => openDetail(json.document_id));
-        tr.title = 'Detayı aç';
-      }
-      if (json.durum === 'BASARILI' || json.durum === 'SUPHELI') basarili++;
+      // Bir PDF'te birden fazla fatura olabilir — her belge ayrı satır olur.
+      const belgeler = json.belgeler && json.belgeler.length ? json.belgeler : [json];
+      let oncekiSatir = tr;
+      belgeler.forEach((belge, idx) => {
+        const satir = idx === 0 ? tr : document.createElement('tr');
+        if (idx > 0) {
+          satir.className = 'no-click';
+          oncekiSatir.after(satir);
+        }
+        oncekiSatir = satir;
+        const dosyaAd = belgeler.length > 1 ? `${f.name} (${idx + 1}/${belgeler.length})` : f.name;
+        const badge = `<span class="badge badge-${esc(belge.durum)}">${esc(belge.durum)}</span>`;
+        satir.innerHTML = `
+          <td>${esc(dosyaAd)}</td>
+          <td>${badge}</td>
+          <td>${hucre(belge.belge_no)}</td>
+          <td class="num">${belge.kalem_sayisi != null ? belge.kalem_sayisi : '-'}</td>
+          <td>${hucre(belge.mesaj)}</td>`;
+        if (belge.document_id) {
+          satir.classList.remove('no-click');
+          satir.addEventListener('click', () => openDetail(belge.document_id));
+          satir.title = 'Detayı aç';
+        }
+        if (belge.durum === 'BASARILI' || belge.durum === 'SUPHELI') basarili++;
+      });
     } catch (err) {
       tr.innerHTML = `<td>${esc(f.name)}</td><td><span class="badge badge-HATALI">HATA</span></td><td colspan="3">${esc(err.message)}</td>`;
     }

@@ -10,6 +10,10 @@ const { parseTrNumber, parseTrPercent, parseTrDate } = require('../normalize');
 // ("Vergi Dairesi:" + geniş boşluk + sağ sütun) sağ sütun değer sanılmasın.
 const VERGI_DAIRESI_RE = /Vergi Dairesi\s*:[ \t]?(\S+(?:[ \t]\S+)*?)(?:[ \t]{2,}|\n|$)/;
 
+// Bazı şablonlarda harf aralığı (kerning) PDF metnine boşluk olarak sızar:
+// "SAYIN" → "SA YIN". Alıcı bloğunu bulan tüm aramalar bu regex'i kullanır.
+const SAYIN_RE = /SA\s?YIN/;
+
 /**
  * GİB standart e-Fatura / e-Arşiv Fatura PDF formatını (pdftotext -layout
  * çıktısı) parse eder. Birden fazla entegratör bu formatı küçük
@@ -69,7 +73,7 @@ function extract(text) {
   // vergi dairesi ve e-posta bu iki bölgede ayrı ayrı aranır — sayaç/etiket
   // sıralamasına dayalı eski sezgisel, satıcısı VKN'li alıcısı TCKN'li
   // faturalarda (ör. kurumsal satıcı → şahıs alıcı) tersine dönüyordu.
-  const sayinIdx = lines.findIndex((l) => /SAYIN/.test(l));
+  const sayinIdx = lines.findIndex((l) => SAYIN_RE.test(l));
   const oncesi = sayinIdx > 0 ? lines.slice(0, sayinIdx).join('\n') : '';
   const sonrasi = sayinIdx >= 0 ? lines.slice(sayinIdx).join('\n') : '';
 
@@ -85,6 +89,9 @@ function extract(text) {
     header.satici_vergi_dairesi = matchField(text, VERGI_DAIRESI_RE);
   }
   header.satici_telefon = matchField(text, /Tel\s*:\s*(\+?\d[\d\s]+)/);
+  header.satici_eposta = sayinIdx > 0
+    ? matchField(oncesi, /E-[Pp]osta\s*:\s*(\S+@\S+)/i)
+    : null;
 
   header.alici_unvan = extractAliciUnvan(lines);
   header.alici_vkn_tckn = sonrasi ? matchField(sonrasi, ID_RE) : null;
@@ -93,23 +100,35 @@ function extract(text) {
 
   // --- Tutarlar ---
   // Bazı şablonlar "Mal / Hizmet Toplam Tutarı" (bölü işaretli) yazar,
-  // bazıları tutarı TL'ye bitişik ("505,66TL") basar.
+  // bazıları tutarı TL'ye bitişik ("505,66TL") basar, bazıları etiket ile
+  // tutar arasına iki nokta üst üste koyar ("Ödenecek Tutar   :   39.321,00 TL").
   header.mal_hizmet_toplam_tutari = parseTrNumber(
-    matchField(text, /Mal\s*\/?\s*Hizmet Toplam Tut[aA]r[ıi]\s+([\d.,]+)\s*TL/)
+    matchField(text, /Mal\s*\/?\s*Hizmet Toplam Tut[aA]r[ıi]\s*:?\s*([\d.,]+)\s*TL/)
   );
-  header.hesaplanan_kdv_toplam = parseTrNumber(
-    matchField(text, /Hesaplanan KDV\s*\([^)]+\)\s+([\d.,]+)\s*TL/)
-  );
+  // Birden fazla KDV oranı varsa şablon her oran için ayrı "Hesaplanan KDV(%X)"
+  // satırı basar — belge toplamı bunların toplamıdır.
+  let kdvToplam = null;
+  for (const m of text.matchAll(/Hesaplanan KDV\s*\([^)]+\)\s*:?\s*([\d.,]+)\s*TL/g)) {
+    const v = parseTrNumber(m[1]);
+    if (v != null) kdvToplam = (kdvToplam ?? 0) + v;
+  }
+  header.hesaplanan_kdv_toplam = kdvToplam != null ? Math.round(kdvToplam * 100) / 100 : null;
   header.vergiler_dahil_toplam_tutar = parseTrNumber(
-    matchField(text, /Vergiler Dahil Toplam Tutar\s+([\d.,]+)\s*TL/)
+    matchField(text, /Vergiler Dahil Toplam Tutar\s*:?\s*([\d.,]+)\s*TL/)
   );
   header.odenecek_tutar = parseTrNumber(
-    matchField(text, /[ÖO]denecek Tutar\s+([\d.,]+)\s*TL/)
+    matchField(text, /[ÖO]denecek Tutar\s*:?\s*([\d.,]+)\s*TL/)
+  );
+  // Belge geneli iskonto: kalem tutarları iskontolu, "Mal / Hizmet Toplam
+  // Tutarı" ise iskontosuz yazılır — doğrulama bu farkı bilmeli.
+  header.toplam_iskonto = parseTrNumber(
+    matchField(text, /Toplam [İI]skonto\s*(?:\([^)]*\))?\s*:?\s*([\d.,]+)\s*TL/)
   );
 
   // --- Notlar (Yalnız + İrsaliye yerine geçer vb.) ---
   const notlarParts = [];
-  const yalnizM = text.match(/Yaln[ıi]z\s*:\s*(.+)/);
+  const yalnizM = text.match(/Yaln[ıi]z\s*:\s*(.+)/)
+    || text.match(/#\s*Yaln[ıi]z\s+([^#\n]+?)\s*#/); // "# Yalnız ... #" biçimi
   if (yalnizM) notlarParts.push(`Yalnız: ${yalnizM[1].trim()}`);
   if (/[İI]rsaliye yerine ge[çc]er/i.test(text)) notlarParts.push('İrsaliye yerine geçer.');
   header.notlar = notlarParts.length ? notlarParts.join(' ') : null;
@@ -151,8 +170,8 @@ function extractSaticiUnvan(lines) {
  * Alıcı unvanı: "SAYIN" satırından sonraki ilk anlamlı metin satırı.
  */
 function extractAliciUnvan(lines) {
-  let sayinIdx = lines.findIndex((l) => /^\s*SAYIN\s*$/.test(l));
-  if (sayinIdx === -1) sayinIdx = lines.findIndex((l) => /SAYIN/.test(l));
+  let sayinIdx = lines.findIndex((l) => /^\s*SA\s?YIN\s*$/.test(l));
+  if (sayinIdx === -1) sayinIdx = lines.findIndex((l) => SAYIN_RE.test(l));
   if (sayinIdx === -1) return null;
 
   for (let i = sayinIdx + 1; i < lines.length; i++) {
@@ -184,7 +203,7 @@ function extractAliciUnvan(lines) {
  * Satıcı Vergi Dairesi de var, bu yüzden SAYIN bloğundan sonrasını arıyoruz.
  */
 function extractAliciVergiDairesi(lines) {
-  let sayinIdx = lines.findIndex((l) => /SAYIN/.test(l));
+  let sayinIdx = lines.findIndex((l) => SAYIN_RE.test(l));
   if (sayinIdx === -1) return null;
   for (let i = sayinIdx; i < Math.min(sayinIdx + 30, lines.length); i++) {
     const m = lines[i].match(VERGI_DAIRESI_RE);
@@ -223,13 +242,30 @@ function extractItems(lines) {
   // 36,64TL 183,21TL") ya da yüzdeyi boşluklu yazar ("% 20,00") — bu yüzden
   // sayı-birim ve %-sayı arasında boşluk opsiyonel.
   // Gruplar: [miktar, birim, birim_fiyat, kdv_orani, kdv_tutari, mal_hizmet_tutari]
-  const itemLineRe = /(\d[\d.,]*)\s*(Adet|Kg|KG|Litre|Lt|m²|m2|Metre|Ton|Paket|Kutu|Hizmet|Saat)\s+([\d.,]+)\s*TL\s+%?\s*([\d.,]+)\s+([\d.,]+)\s*TL\s+([\d.,]+)\s*TL/i;
+  const itemLineRe = /(\d[\d.,]*)\s*(Adet|Kg|KG|Litre|Lt|m²|m2|Metre|Ton|Paket|Kutu|Hizmet|Saat|Tak[ıi]m)\s+([\d.,]+)\s*TL\s+%?\s*([\d.,]+)\s+([\d.,]+)\s*TL\s+([\d.,]+)\s*TL/i;
 
   // Birimsiz varyasyon (ör. telekom faturası): "1   546,4 TL ... %20,00  109,28 TL".
   // Mal hizmet tutarı sütunu satır taşması yüzünden başka satırlara
   // bölünebildiğinden yakalanmaz; miktar × birim fiyattan hesaplanır.
   // Gruplar: [miktar, birim_fiyat, kdv_orani, kdv_tutari]
   const itemLineNoUnitRe = /(\d[\d.,]*)\s+([\d.,]+)\s*TL\s+%\s*([\d.,]+)\s+([\d.,]+)\s*TL/;
+
+  // İskonto sütunlu şablon (ör. hırdavat toptancısı ticari faturası): "12 Adet
+  // 85,0000 TL   %20,00   173,40    867,00 TL". KDV tutarı hücresi dikey
+  // hizalama bozulması yüzünden TL'siz kalabilir, tamamen komşu satıra
+  // kayabilir ("%20,00   TL   1.836,00 TL") ya da mal/hizmet tutarı bir alt
+  // satıra taşabilir — bu yüzden %oran'dan sonrası serbest "kuyruk" olarak
+  // yakalanıp parseIskontoTail ile ayrıştırılır. ".*%" açgözlü olduğundan
+  // oran, satırdaki SON yüzdedir (dolu iskonto oranı sütunu KDV sanılmaz).
+  // Birim "M" yalnız burada: ardından boşluk/rakam şartı MLX/MM gibi
+  // kelime içi eşleşmeleri engeller.
+  // Gruplar: [miktar, birim, birim_fiyat, kdv_orani, kuyruk]
+  const itemLineIskontoRe = /(\d[\d.,]*)\s*(Adet|Kg|KG|Litre|Lt|m²|m2|Metre|Ton|Paket|Kutu|Hizmet|Saat|Tak[ıi]m|M)(?=[\s\d])\s*([\d.,]+)\s*TL\b.*%\s*([\d.,]+)([^%]*)$/i;
+
+  // Aynı şablonun birimsiz hali (birim hücresi alt satıra taşmış:
+  // "80.000   0,2100 TL   %20,00   2.856,00   14.280,00 TL").
+  // Gruplar: [miktar, birim_fiyat, kdv_orani, kuyruk]
+  const itemLineNoUnitIskontoRe = /(\d[\d.,]*)\s+([\d.,]+)\s*TL\b.*%\s*([\d.,]+)([^%]*)$/;
 
   // Sıra no satırı (sadece rakam, opsiyonel boşluk) — bazı şablonlarda ayrı satırda gelebilir
   const siraNoRe = /^\s*(\d+)\s*$/;
@@ -241,7 +277,7 @@ function extractItems(lines) {
   // "No:74" gibi ifadeler tablo başlığı sanılmasın.
   const headerLineRe = /Sıra|^No(?:\s|$)|Malzeme|Açıklama|Miktar|Birim Fiyat|KDV Oranı|KDV Tutarı|Mal\s*\/?\s*Hizmet|Stok Kodu|[ÜU]r[üu]n Kodu|[İI]skonto|Di[ğg]er Vergiler|^Tutar[ıi]$|^Oran[ıi](?:\s|$)/;
 
-  const totalsLineRe = /Toplam Tutar|Toplam [İI]skonto|Hesaplanan\s+\S*[KO][DI]V|Vergiler Dahil|[ÖO]denecek Tutar|Yuvarlama Fark[ıi]|Yaln[ıi]z|[İI]rsaliye yerine/i;
+  const totalsLineRe = /Toplam Tutar|Toplam [İI]skonto|Toplam Masraf|Hesaplanan\s+\S*[KO][DI]V|Vergiler Dahil|[ÖO]denecek Tutar|Yuvarlama Fark[ıi]|Yaln[ıi]z|[İI]rsaliye yerine/i;
 
   // Tablo sütun taşması artıkları: tek başına kalan tutar parçası ("546,40",
   // "TL") — açıklamaya karışmasın.
@@ -251,8 +287,11 @@ function extractItems(lines) {
   let pendingSiraNo = null; // bağımsız bir sıra no satırı görüldüyse
   let lastItem = null;      // az önce eklenen kalem — devam satırlarını buna ekle
   let inTable = false;      // kalem tablosu başlığı görülmeden hiçbir satır açıklama sayılmaz
+  const consumed = new Set(); // ileri bakışla tüketilen taşma satırları (indeks)
 
-  for (const line of lines) {
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (consumed.has(i)) continue;
     const stripped = line.trim();
 
     if (headerLineRe.test(stripped)) {
@@ -274,13 +313,47 @@ function extractItems(lines) {
 
     let itemMatch = line.match(itemLineRe);
     let birimYok = false;
+    let iskontoVaryant = false;
     if (!itemMatch) {
       itemMatch = line.match(itemLineNoUnitRe);
       birimYok = itemMatch != null;
     }
+    if (!itemMatch) {
+      itemMatch = line.match(itemLineIskontoRe);
+      iskontoVaryant = itemMatch != null;
+    }
+    if (!itemMatch) {
+      itemMatch = line.match(itemLineNoUnitIskontoRe);
+      if (itemMatch) { iskontoVaryant = true; birimYok = true; }
+    }
     if (itemMatch) {
       let miktar, birim, birim_fiyat, kdv_orani, kdv_tutari, mal_hizmet_tutari;
-      if (birimYok) {
+      if (iskontoVaryant) {
+        let kuyruk;
+        if (birimYok) {
+          [, miktar, birim_fiyat, kdv_orani, kuyruk] = itemMatch;
+          birim = null;
+        } else {
+          [, miktar, birim, birim_fiyat, kdv_orani, kuyruk] = itemMatch;
+        }
+        const tail = parseIskontoTail(kuyruk);
+        kdv_tutari = tail.kdv;
+        mal_hizmet_tutari = tail.tutar;
+        // Tutar bir alt satıra taştıysa ("TL   6.120,00 TL" gibi yalnız
+        // taşma içeren satır) oradan al ve o satırı tüket.
+        if (mal_hizmet_tutari == null) {
+          for (let j = i + 1; j < Math.min(i + 4, lines.length); j++) {
+            const next = lines[j].trim();
+            if (!next) continue;
+            const nm = next.match(/^(?:TL\s+)?([\d.,]+)\s*TL$/);
+            if (nm) {
+              mal_hizmet_tutari = nm[1];
+              consumed.add(j);
+            }
+            break;
+          }
+        }
+      } else if (birimYok) {
         [, miktar, birim_fiyat, kdv_orani, kdv_tutari] = itemMatch;
         birim = null;
         mal_hizmet_tutari = null;
@@ -310,13 +383,27 @@ function extractItems(lines) {
 
       const miktarNum = parseTrNumber(miktar);
       const birimFiyatNum = parseTrNumber(birim_fiyat);
-      // Birimsiz şablonda tutar sütunu satır taşmasına kurban gidiyor —
-      // miktar × birim fiyat ile hesapla (iskonto yoksa birebir aynı değer).
-      const tutarNum = mal_hizmet_tutari != null
-        ? parseTrNumber(mal_hizmet_tutari)
-        : (miktarNum != null && birimFiyatNum != null
+      const oranNum = parseTrPercent(kdv_orani);
+      let kdvNum = parseTrNumber(kdv_tutari);
+      let tutarNum = mal_hizmet_tutari != null ? parseTrNumber(mal_hizmet_tutari) : null;
+
+      if (iskontoVaryant) {
+        // Bu şablonda kalem tutarı belge iskontosu düşülmüş yazılır, miktar ×
+        // birim fiyat İSKONTOSUZ değerdir — eksik hücre komşularından türetilir:
+        // KDV her zaman iskontolu tutar üzerinden hesaplandığından ikili
+        // (tutar, KDV) birbirinden %oran ile çıkarılabilir.
+        if (kdvNum == null && tutarNum != null && oranNum != null) {
+          kdvNum = Math.round(tutarNum * oranNum) / 100;
+        } else if (tutarNum == null && kdvNum != null && oranNum > 0) {
+          tutarNum = Math.round((kdvNum * 100 / oranNum) * 100) / 100;
+        }
+      } else if (tutarNum == null) {
+        // Birimsiz şablonda tutar sütunu satır taşmasına kurban gidiyor —
+        // miktar × birim fiyat ile hesapla (iskonto yoksa birebir aynı değer).
+        tutarNum = miktarNum != null && birimFiyatNum != null
           ? Math.round(miktarNum * birimFiyatNum * 100) / 100
-          : null);
+          : null;
+      }
 
       const item = {
         sira_no: siraNo != null ? parseInt(siraNo, 10) : items.length + 1,
@@ -324,8 +411,8 @@ function extractItems(lines) {
         miktar: miktarNum,
         birim: birim ? birim.trim() : null,
         birim_fiyat: birimFiyatNum,
-        kdv_orani: parseTrPercent(kdv_orani),
-        kdv_tutari: parseTrNumber(kdv_tutari),
+        kdv_orani: oranNum,
+        kdv_tutari: kdvNum,
         mal_hizmet_tutari: tutarNum,
       };
       items.push(item);
@@ -353,15 +440,50 @@ function extractItems(lines) {
 
     // Düz metin satırı: hem bir önceki kalemin devamı olabilir hem de
     // sıradaki kalemin açıklamasının başlangıcı — ikisine de ekleniyor.
-    if (stripped.length > 0 && stripped.length < 200) {
+    // Satırın sağına dikey hizalama bozulmasıyla düşen yalnız-sayı/TL
+    // sütunları (komşu kalemin KDV tutarı vb.) açıklamadan ayıklanır.
+    const temiz = stripNumericColumns(stripped);
+    if (temiz.length > 0 && temiz.length < 200) {
       if (lastItem) {
-        lastItem.aciklama = lastItem.aciklama ? `${lastItem.aciklama} ${stripped}` : stripped;
+        lastItem.aciklama = lastItem.aciklama ? `${lastItem.aciklama} ${temiz}` : temiz;
       }
-      leadingLines.push(stripped);
+      leadingLines.push(temiz);
     }
   }
 
   return items;
+}
+
+/**
+ * İskonto sütunlu şablonda %oran'dan sonra kalan kuyruğu ayrıştırır.
+ * Görülen biçimler: "173,40  867,00 TL" (KDV + tutar), "93,50 TL  467,50 TL",
+ * "TL  1.836,00 TL" (KDV komşu satıra kaymış), "1.224,00" (tutar alt satıra
+ * taşmış), "  6.375,00 TL" (yalnız tutar), "" / "TL" (her ikisi de kaymış).
+ * @returns {{ kdv: string|null, tutar: string|null }}
+ */
+function parseIskontoTail(kuyruk) {
+  const t = (kuyruk || '').trim();
+  let m = t.match(/^(?:([\d.,]+)\s*(?:TL)?\s+)?(?:TL\s+)?([\d.,]+)\s*TL$/);
+  if (m) return { kdv: m[1] ?? null, tutar: m[2] };
+  m = t.match(/^([\d.,]+)(?:\s*TL)?$/); // yalnız KDV kaldı, tutar taştı
+  if (m) return { kdv: m[1], tutar: null };
+  return { kdv: null, tutar: null };
+}
+
+/**
+ * Bir açıklama satırından, 2+ boşlukla ayrılmış yalnız-sayısal sütun
+ * parçalarını ("688,50", "TL", "%20,00") atar — bunlar komşu kalem
+ * satırlarından dikey kaymayla düşen hücre artıklarıdır.
+ */
+function stripNumericColumns(line) {
+  return line
+    .split(/[ \t]{2,}/)
+    .filter((seg) => {
+      const s = seg.trim();
+      return s && !/^(?:[\d.,]+\s*(?:TL)?|TL|%\s*[\d.,]+)$/.test(s);
+    })
+    .join(' ')
+    .trim();
 }
 
 function computeConfidence(header, items) {

@@ -1,29 +1,24 @@
 'use strict';
 
-// Tek bir PDF'i işleyen ortak ingest mantığı: pdftotext → extractor →
-// doğrulama → DB'ye upsert. Hem CLI (ingestRunner) hem web yüklemesi
-// (POST /api/upload) bu modülü kullanır.
+// Tek bir PDF'i işleyen ortak ingest mantığı: pdftotext → belge ayrıştırma
+// (bir dosyada art arda birden çok fatura olabilir) → extractor → doğrulama →
+// DB'ye upsert. Hem CLI (ingestRunner) hem web yüklemesi (POST /api/upload)
+// bu modülü kullanır.
 
 const { pdfToText } = require('./pdfToText');
+const { splitIntoDocuments } = require('./splitDocuments');
 const { dispatch } = require('./extractors/index');
 const { validateDocument } = require('./validate');
 
-/**
- * @param {object|null} db - DatabaseSync; null ise DB'ye yazılmaz (dry-run)
- * @param {string} pdfPath - PDF'in diskteki tam yolu
- * @param {string} kaynak_dosya - DB'ye yazılacak kaynak dosya etiketi
- * @returns {Promise<{durum: 'BASARILI'|'SUPHELI'|'HATALI'|'TANINMAYAN', mesaj: string|null, document_id?: number, belge_no?: string|null, ettn?: string|null, kalem_sayisi?: number, extractor?: string}>}
- */
-async function ingestPdf(db, pdfPath, kaynak_dosya) {
-  let text;
-  try {
-    text = await pdfToText(pdfPath);
-  } catch (err) {
-    if (db) saveError(db, kaynak_dosya, err.message);
-    return { durum: 'HATALI', mesaj: err.message };
-  }
+// Toplu sonuç için durum önceliği: en kötü durum dosyanın durumu olur.
+const DURUM_SIRASI = { BASARILI: 0, SUPHELI: 1, TANINMAYAN: 2, HATALI: 3 };
 
-  const dispatched = dispatch(text);
+/**
+ * Tek bir belge segmentini (bir faturanın metni) işler.
+ * @returns {{durum: string, mesaj: string|null, document_id?: number, belge_no?: string|null, ettn?: string|null, kalem_sayisi?: number, extractor?: string}}
+ */
+function ingestSegment(db, segmentText, kaynak_dosya) {
+  const dispatched = dispatch(segmentText);
   if (!dispatched) {
     return { durum: 'TANINMAYAN', mesaj: 'Hiçbir extractor bu formatı tanımadı — yeni şablon/extractor gerekebilir' };
   }
@@ -46,6 +41,53 @@ async function ingestPdf(db, pdfPath, kaynak_dosya) {
     ettn: header.ettn ?? null,
     kalem_sayisi: items.length,
     extractor: dispatched.name,
+  };
+}
+
+/**
+ * @param {object|null} db - DatabaseSync; null ise DB'ye yazılmaz (dry-run)
+ * @param {string} pdfPath - PDF'in diskteki tam yolu
+ * @param {string} kaynak_dosya - DB'ye yazılacak kaynak dosya etiketi
+ * @returns {Promise<{durum: 'BASARILI'|'SUPHELI'|'HATALI'|'TANINMAYAN', mesaj: string|null, belge_sayisi: number, belgeler: object[], document_id?: number, belge_no?: string|null, ettn?: string|null, kalem_sayisi?: number, extractor?: string}>}
+ *   Dosyada birden çok fatura varsa `belgeler` her biri için ayrı sonuç
+ *   içerir; üst seviye alanlar geriye dönük uyumluluk için ilk belgeden
+ *   (durum ise en kötüsünden) türetilir.
+ */
+async function ingestPdf(db, pdfPath, kaynak_dosya) {
+  let text;
+  try {
+    text = await pdfToText(pdfPath);
+  } catch (err) {
+    if (db) saveError(db, kaynak_dosya, err.message);
+    return { durum: 'HATALI', mesaj: err.message, belge_sayisi: 0, belgeler: [] };
+  }
+
+  const segments = splitIntoDocuments(text);
+  const belgeler = segments.map((seg) => ingestSegment(db, seg, kaynak_dosya));
+
+  if (belgeler.length === 1) {
+    return { ...belgeler[0], belge_sayisi: 1, belgeler };
+  }
+
+  const durum = belgeler.reduce(
+    (worst, b) => (DURUM_SIRASI[b.durum] > DURUM_SIRASI[worst] ? b.durum : worst),
+    'BASARILI'
+  );
+  const sorunlar = belgeler
+    .filter((b) => b.mesaj)
+    .map((b) => `${b.belge_no ?? b.ettn ?? '?'}: ${b.mesaj}`);
+  const kalemToplam = belgeler.reduce((sum, b) => sum + (b.kalem_sayisi ?? 0), 0);
+
+  return {
+    durum,
+    mesaj: sorunlar.length ? sorunlar.join(' | ') : `${belgeler.length} belge çıkarıldı`,
+    belge_sayisi: belgeler.length,
+    belgeler,
+    document_id: belgeler[0].document_id,
+    belge_no: belgeler[0].belge_no ?? null,
+    ettn: belgeler[0].ettn ?? null,
+    kalem_sayisi: kalemToplam,
+    extractor: belgeler[0].extractor,
   };
 }
 
@@ -114,12 +156,12 @@ function upsertDocument(db, header, items) {
     INSERT INTO documents (
       belge_tipi, belge_no, ettn, duzenleme_tarihi, duzenleme_zamani,
       senaryo, fatura_tipi, satici_id, alici_id,
-      mal_hizmet_toplam_tutari, hesaplanan_kdv_toplam, vergiler_dahil_toplam_tutar, odenecek_tutar,
+      mal_hizmet_toplam_tutari, toplam_iskonto, hesaplanan_kdv_toplam, vergiler_dahil_toplam_tutar, odenecek_tutar,
       notlar, kaynak_dosya, parse_durumu, parse_notu
     ) VALUES (
       :belge_tipi, :belge_no, :ettn, :duzenleme_tarihi, :duzenleme_zamani,
       :senaryo, :fatura_tipi, :satici_id, :alici_id,
-      :mal_hizmet_toplam_tutari, :hesaplanan_kdv_toplam, :vergiler_dahil_toplam_tutar, :odenecek_tutar,
+      :mal_hizmet_toplam_tutari, :toplam_iskonto, :hesaplanan_kdv_toplam, :vergiler_dahil_toplam_tutar, :odenecek_tutar,
       :notlar, :kaynak_dosya, :parse_durumu, :parse_notu
     )
   `);
@@ -152,6 +194,7 @@ function upsertDocument(db, header, items) {
       satici_id,
       alici_id,
       mal_hizmet_toplam_tutari: header.mal_hizmet_toplam_tutari,
+      toplam_iskonto: header.toplam_iskonto ?? null,
       hesaplanan_kdv_toplam: header.hesaplanan_kdv_toplam,
       vergiler_dahil_toplam_tutar: header.vergiler_dahil_toplam_tutar,
       odenecek_tutar: header.odenecek_tutar,

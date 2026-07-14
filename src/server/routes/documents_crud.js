@@ -137,7 +137,7 @@ router.post('/:id/revalidate', (req, res) => {
   const db = getDb();
 
   const doc = db.prepare(
-    'SELECT mal_hizmet_toplam_tutari, hesaplanan_kdv_toplam FROM documents WHERE id = ?'
+    'SELECT mal_hizmet_toplam_tutari, toplam_iskonto, hesaplanan_kdv_toplam FROM documents WHERE id = ?'
   ).get(id);
   if (!doc) return res.status(404).json({ error: 'Belge bulunamadı' });
 
