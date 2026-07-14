@@ -16,14 +16,9 @@ function resolvePdftotextBin() {
 
 const PDFTOTEXT_BIN = resolvePdftotextBin();
 
-/**
- * pdftotext -layout ile PDF'ten metin çıkarır.
- * @param {string} pdfPath - PDF dosyasının tam yolu
- * @returns {Promise<string>} - Çıkarılan ham metin
- */
-async function pdfToText(pdfPath) {
+async function runPdftotext(pdfPath, modeArgs) {
   try {
-    const { stdout } = await execFileAsync(PDFTOTEXT_BIN, ['-layout', pdfPath, '-'], {
+    const { stdout } = await execFileAsync(PDFTOTEXT_BIN, [...modeArgs, pdfPath, '-'], {
       encoding: 'utf8',
       maxBuffer: 10 * 1024 * 1024,
     });
@@ -41,4 +36,24 @@ async function pdfToText(pdfPath) {
   }
 }
 
-module.exports = { pdfToText };
+/**
+ * pdftotext -layout ile PDF'ten metin çıkarır (sütun düzeni korunur;
+ * extractor'ların beklediği biçim budur).
+ * @param {string} pdfPath - PDF dosyasının tam yolu
+ * @returns {Promise<string>} - Çıkarılan ham metin
+ */
+async function pdfToText(pdfPath) {
+  return runPdftotext(pdfPath, ['-layout']);
+}
+
+/**
+ * pdftotext -raw ile PDF'ten metin çıkarır. Sütun düzeni kaybolur ama
+ * kelimeler bütündür: -layout modunun sabit karakter ızgarası, geniş harf
+ * aralıklı (kerning) fontlarda kelime içine boşluk sokar ("HO RTUM");
+ * -raw çıktısı bu bozulmayı onarmak için referans olarak kullanılır.
+ */
+async function pdfToTextRaw(pdfPath) {
+  return runPdftotext(pdfPath, ['-raw']);
+}
+
+module.exports = { pdfToText, pdfToTextRaw };

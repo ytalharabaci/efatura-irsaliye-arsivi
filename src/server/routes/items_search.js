@@ -16,13 +16,19 @@ router.get('/', (req, res) => {
     return res.status(400).json({ error: 'q parametresi en az 2 karakter olmalı' });
   }
 
-  // tr_lower: Türkçe harf duyarsız arama ("güvenlik" → "GÜVENLİK" bulunur)
+  // tr_lower: Türkçe harf duyarsız arama ("güvenlik" → "GÜVENLİK" bulunur).
+  // İkinci koşul boşluk duyarsız: iki taraftan da boşluklar atılarak
+  // karşılaştırılır — PDF kerning artefaktıyla bölünmüş eski kayıtlar
+  // ("HO RTUM") ve bitişik yazımlar da bulunur.
   const pattern = likeContains(q);
-  const whereSql = "tr_lower(i.aciklama) LIKE tr_lower(?) ESCAPE '\\'";
+  const patternNoSpace = likeContains(String(q).replace(/\s+/g, ''));
+  const whereSql = `(tr_lower(i.aciklama) LIKE tr_lower(?) ESCAPE '\\'
+    OR REPLACE(tr_lower(i.aciklama), ' ', '') LIKE tr_lower(?) ESCAPE '\\')`;
+  const whereParams = [pattern, patternNoSpace];
 
   const countRow = db.prepare(
     `SELECT COUNT(*) as total FROM items i WHERE ${whereSql}`
-  ).get(pattern);
+  ).get(...whereParams);
 
   const rows = db.prepare(`
     SELECT i.id, i.sira_no, i.aciklama, i.miktar, i.birim, i.birim_fiyat,
@@ -36,7 +42,7 @@ router.get('/', (req, res) => {
     WHERE ${whereSql}
     ORDER BY d.duzenleme_tarihi DESC, d.id DESC
     LIMIT ? OFFSET ?
-  `).all(pattern, limit, offset);
+  `).all(...whereParams, limit, offset);
 
   res.json({ total: countRow.total, limit, offset, data: rows });
 });

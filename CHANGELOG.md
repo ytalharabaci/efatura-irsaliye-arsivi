@@ -5,6 +5,21 @@ Bu projedeki dikkate değer değişiklikler bu dosyada belgelenir.
 Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/) standardına,
 sürümleme [Semantic Versioning](https://semver.org/lang/tr/) kurallarına uyar.
 
+## [1.4.1] - 2026-07-14
+
+### Düzeltildi
+
+- **Kelime içi boşluk artefaktları onarılıyor** ("HO RTUM" → "HORTUM"):
+  `pdftotext -layout`, geniş harf aralıklı (kerning) fontlarda kelime
+  içine boşluk sokuyordu. Aynı PDF'in `-raw` çıktısı referans alınarak
+  bölünmüş kelimeler birleştiriliyor (`src/ingest/repairKerning.js`);
+  gerçek boşluklara ve sayısal değerlere dokunulmaz. Unvan, vergi dairesi,
+  notlar ve kalem açıklamalarına uygulanır.
+- **Kalem araması boşluk duyarsız**: açıklamadaki ve aranan metindeki
+  boşluklar atılarak da karşılaştırılıyor — daha önce işlenmiş bölünmüş
+  kayıtlar ("HO RTUM") ve bitişik yazımlar da bulunur. (Arama zaten
+  `tr_lower` ile Türkçe harf duyarsızdı.)
+
 ## [1.4.0] - 2026-07-14
 
 ### Eklendi

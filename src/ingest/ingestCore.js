@@ -5,9 +5,10 @@
 // DB'ye upsert. Hem CLI (ingestRunner) hem web yüklemesi (POST /api/upload)
 // bu modülü kullanır.
 
-const { pdfToText } = require('./pdfToText');
+const { pdfToText, pdfToTextRaw } = require('./pdfToText');
 const { splitIntoDocuments } = require('./splitDocuments');
 const { dispatch } = require('./extractors/index');
+const { repairDocumentText } = require('./repairKerning');
 const { validateDocument } = require('./validate');
 
 // Toplu sonuç için durum önceliği: en kötü durum dosyanın durumu olur.
@@ -17,11 +18,15 @@ const DURUM_SIRASI = { BASARILI: 0, SUPHELI: 1, TANINMAYAN: 2, HATALI: 3 };
  * Tek bir belge segmentini (bir faturanın metni) işler.
  * @returns {{durum: string, mesaj: string|null, document_id?: number, belge_no?: string|null, ettn?: string|null, kalem_sayisi?: number, extractor?: string}}
  */
-function ingestSegment(db, segmentText, kaynak_dosya) {
+function ingestSegment(db, segmentText, kaynak_dosya, rawText) {
   const dispatched = dispatch(segmentText);
   if (!dispatched) {
     return { durum: 'TANINMAYAN', mesaj: 'Hiçbir extractor bu formatı tanımadı — yeni şablon/extractor gerekebilir' };
   }
+
+  // Kerning artefaktlarını (-layout'un kelime içine soktuğu boşluklar)
+  // -raw çıktısını referans alarak onar: "HO RTUM" → "HORTUM".
+  repairDocumentText(dispatched.result, rawText);
 
   const { header, items } = dispatched.result;
   const validation = validateDocument(header, items);
@@ -62,8 +67,14 @@ async function ingestPdf(db, pdfPath, kaynak_dosya) {
     return { durum: 'HATALI', mesaj: err.message, belge_sayisi: 0, belgeler: [] };
   }
 
+  // Kerning onarımı için -raw çıktısı; alınamazsa onarımsız devam edilir.
+  let rawText = null;
+  try {
+    rawText = await pdfToTextRaw(pdfPath);
+  } catch { /* onarım opsiyonel */ }
+
   const segments = splitIntoDocuments(text);
-  const belgeler = segments.map((seg) => ingestSegment(db, seg, kaynak_dosya));
+  const belgeler = segments.map((seg) => ingestSegment(db, seg, kaynak_dosya, rawText));
 
   if (belgeler.length === 1) {
     return { ...belgeler[0], belge_sayisi: 1, belgeler };
