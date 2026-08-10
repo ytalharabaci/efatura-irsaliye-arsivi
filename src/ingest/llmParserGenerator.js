@@ -8,10 +8,10 @@ const vm = require('node:vm');
 const PROVIDERS = {
   deepseek: {
     id: 'deepseek',
-    name: 'DeepSeek (V3 / R1 / V4)',
+    name: 'DeepSeek (V4 Flash / V4 Pro)',
     baseUrl: 'https://api.deepseek.com',
-    defaultModel: 'deepseek-chat',
-    models: ['deepseek-chat', 'deepseek-coder', 'deepseek-reasoner'],
+    defaultModel: 'deepseek-v4-flash',
+    models: ['deepseek-v4-flash', 'deepseek-v4-pro'],
     envKeys: ['DEEPSEEK_API_KEY', 'LLM_API_KEY'],
   },
   glm: {
