@@ -10,7 +10,7 @@ const PROVIDERS = {
     id: 'deepseek',
     name: 'DeepSeek (V4 Flash / V4 Pro)',
     baseUrl: 'https://api.deepseek.com',
-    defaultModel: 'deepseek-v4-pro',
+    defaultModel: 'deepseek-v4-flash',
     models: ['deepseek-v4-flash', 'deepseek-v4-pro'],
     envKeys: ['DEEPSEEK_API_KEY', 'LLM_API_KEY'],
   },
@@ -188,18 +188,8 @@ function validateJsSyntax(code) {
  * @param {string} [options.model]
  * @returns {Promise<{ success: boolean, code?: string, error?: string, provider?: string, model?: string }>}
  */
-async function generateParserFromLayout(anonymizedText, options = {}) {
-  const config = resolveLlmConfig(options);
-
-  if (!config.apiKey) {
-    return {
-      success: false,
-      error: `LLM API Anahtarı bulunamadı (${config.providerName} için LLM_API_KEY veya ilgili sağlayıcı key'i tanımlamalısınız).`,
-    };
-  }
-
+async function executeLlmCall(anonymizedText, config) {
   const endpoint = `${config.baseUrl.replace(/\/+$/, '')}/chat/completions`;
-
   const payload = {
     model: config.model,
     messages: [
@@ -250,6 +240,39 @@ async function generateParserFromLayout(anonymizedText, options = {}) {
   } catch (err) {
     return { success: false, error: `${config.providerName} API çağrısı başarısız: ${err.message}` };
   }
+}
+
+/**
+ * Calls OpenAI-compatible API to generate a JS parser from layout text.
+ * DeepSeek (V3/V4/R1), GLM (GLM-4) ve OpenAI modellerini otomatik destekler.
+ * DeepSeek için varsayılan süper hızlı v4-flash ile dener; eğer başarısız olursa
+ * otomatik olarak v4-pro modeline düşer (Smart Fallback).
+ *
+ * @param {string} anonymizedText - Anonymized pdftotext -layout output
+ * @param {object} [options]
+ * @returns {Promise<{ success: boolean, code?: string, error?: string, provider?: string, model?: string }>}
+ */
+async function generateParserFromLayout(anonymizedText, options = {}) {
+  const config = resolveLlmConfig(options);
+
+  if (!config.apiKey) {
+    return {
+      success: false,
+      error: `LLM API Anahtarı bulunamadı (${config.providerName} için LLM_API_KEY veya ilgili sağlayıcı key'i tanımlamalısınız).`,
+    };
+  }
+
+  // 1. Aşama: İlk olarak varsayılan model (v4-flash) ile hızlıca dene
+  let result = await executeLlmCall(anonymizedText, config);
+
+  // 2. Aşama (Akıllı Fallback): DeepSeek v4-flash yetersiz kaldıysa v4-pro modeline geç
+  if (!result.success && config.provider === 'deepseek' && config.model === 'deepseek-v4-flash' && !options.model) {
+    console.log('[LLM Parser] v4-flash yetersiz kaldı, Akıllı Fallback (deepseek-v4-pro) ile tekrar deneniyor...');
+    const proConfig = { ...config, model: 'deepseek-v4-pro' };
+    result = await executeLlmCall(anonymizedText, proConfig);
+  }
+
+  return result;
 }
 
 module.exports = {
