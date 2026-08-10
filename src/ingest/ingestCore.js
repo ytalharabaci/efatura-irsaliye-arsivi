@@ -7,7 +7,9 @@
 
 const { pdfToText, pdfToTextRaw } = require('./pdfToText');
 const { splitIntoDocuments } = require('./splitDocuments');
-const { dispatch } = require('./extractors/index');
+const { anonymizePdfText } = require('./anonymize');
+const { generateParserFromLayout } = require('./llmParserGenerator');
+const { dispatch, registerDynamicExtractor } = require('./extractors/index');
 const { repairDocumentText } = require('./repairKerning');
 const { validateDocument } = require('./validate');
 
@@ -16,10 +18,34 @@ const DURUM_SIRASI = { BASARILI: 0, SUPHELI: 1, TANINMAYAN: 2, HATALI: 3 };
 
 /**
  * Tek bir belge segmentini (bir faturanın metni) işler.
- * @returns {{durum: string, mesaj: string|null, document_id?: number, belge_no?: string|null, ettn?: string|null, kalem_sayisi?: number, extractor?: string}}
+ * @returns {Promise<{durum: string, mesaj: string|null, document_id?: number, belge_no?: string|null, ettn?: string|null, kalem_sayisi?: number, extractor?: string}>}
  */
-function ingestSegment(db, segmentText, kaynak_dosya, rawText) {
-  const dispatched = dispatch(segmentText);
+async function ingestSegment(db, segmentText, kaynak_dosya, rawText, options = {}) {
+  let dispatched = dispatch(segmentText);
+
+  // Eğer hiçbir extractor tanıyamadıysa ve LLM API Anahtarı mevcutsa veya otomatik üretme aktifse:
+  const hasLlmKey = Boolean(options.apiKey || process.env.LLM_API_KEY || process.env.OPENAI_API_KEY || process.env.DEEPSEEK_API_KEY);
+  const allowAutoLlm = options.autoGenerateParser !== false && (hasLlmKey || process.env.ENABLE_LLM_AUTO_PARSER === 'true');
+
+  if (!dispatched && allowAutoLlm && hasLlmKey) {
+    try {
+      console.log('[Ingest] Tanınmayan şablon algılandı, KVKK maskelemesi yapılarak LLM ile parser yazdırılıyor...');
+      const anonymized = anonymizePdfText(segmentText);
+      const genResult = await generateParserFromLayout(anonymized, options);
+
+      if (genResult.success && genResult.code) {
+        const extractorName = `dynamic_${Date.now()}`;
+        registerDynamicExtractor(extractorName, genResult.code);
+        console.log(`[Ingest] Yeni extractor başarıyla diske kaydedildi: ${extractorName}`);
+        dispatched = dispatch(segmentText);
+      } else {
+        console.error('[Ingest] LLM Parser üretimi başarısız oldu:', genResult.error);
+      }
+    } catch (err) {
+      console.error('[Ingest] LLM Parser üretimi sırasında istisna oluştu:', err.message);
+    }
+  }
+
   if (!dispatched) {
     return { durum: 'TANINMAYAN', mesaj: 'Hiçbir extractor bu formatı tanımadı — yeni şablon/extractor gerekebilir' };
   }
@@ -53,12 +79,13 @@ function ingestSegment(db, segmentText, kaynak_dosya, rawText) {
  * @param {object|null} db - DatabaseSync; null ise DB'ye yazılmaz (dry-run)
  * @param {string} pdfPath - PDF'in diskteki tam yolu
  * @param {string} kaynak_dosya - DB'ye yazılacak kaynak dosya etiketi
+ * @param {object} [options] - Opsiyonel ingest/LLM parametreleri
  * @returns {Promise<{durum: 'BASARILI'|'SUPHELI'|'HATALI'|'TANINMAYAN', mesaj: string|null, belge_sayisi: number, belgeler: object[], document_id?: number, belge_no?: string|null, ettn?: string|null, kalem_sayisi?: number, extractor?: string}>}
  *   Dosyada birden çok fatura varsa `belgeler` her biri için ayrı sonuç
  *   içerir; üst seviye alanlar geriye dönük uyumluluk için ilk belgeden
  *   (durum ise en kötüsünden) türetilir.
  */
-async function ingestPdf(db, pdfPath, kaynak_dosya) {
+async function ingestPdf(db, pdfPath, kaynak_dosya, options = {}) {
   let text;
   try {
     text = await pdfToText(pdfPath);
@@ -74,7 +101,11 @@ async function ingestPdf(db, pdfPath, kaynak_dosya) {
   } catch { /* onarım opsiyonel */ }
 
   const segments = splitIntoDocuments(text);
-  const belgeler = segments.map((seg) => ingestSegment(db, seg, kaynak_dosya, rawText));
+  const belgeler = [];
+  for (const seg of segments) {
+    const bResult = await ingestSegment(db, seg, kaynak_dosya, rawText, options);
+    belgeler.push(bResult);
+  }
 
   if (belgeler.length === 1) {
     return { ...belgeler[0], belge_sayisi: 1, belgeler };
@@ -167,19 +198,19 @@ function upsertDocument(db, header, items) {
     INSERT INTO documents (
       belge_tipi, belge_no, ettn, duzenleme_tarihi, duzenleme_zamani,
       senaryo, fatura_tipi, satici_id, alici_id,
-      mal_hizmet_toplam_tutari, toplam_iskonto, hesaplanan_kdv_toplam, vergiler_dahil_toplam_tutar, odenecek_tutar,
+      mal_hizmet_toplam_tutari, toplam_iskonto, kdv_matrahi, hesaplanan_kdv_toplam, vergiler_dahil_toplam_tutar, odenecek_tutar,
       notlar, kaynak_dosya, parse_durumu, parse_notu
     ) VALUES (
       :belge_tipi, :belge_no, :ettn, :duzenleme_tarihi, :duzenleme_zamani,
       :senaryo, :fatura_tipi, :satici_id, :alici_id,
-      :mal_hizmet_toplam_tutari, :toplam_iskonto, :hesaplanan_kdv_toplam, :vergiler_dahil_toplam_tutar, :odenecek_tutar,
+      :mal_hizmet_toplam_tutari, :toplam_iskonto, :kdv_matrahi, :hesaplanan_kdv_toplam, :vergiler_dahil_toplam_tutar, :odenecek_tutar,
       :notlar, :kaynak_dosya, :parse_durumu, :parse_notu
     )
   `);
 
   const insertItem = db.prepare(`
-    INSERT INTO items (document_id, sira_no, aciklama, miktar, birim, birim_fiyat, kdv_orani, kdv_tutari, mal_hizmet_tutari)
-    VALUES (:document_id, :sira_no, :aciklama, :miktar, :birim, :birim_fiyat, :kdv_orani, :kdv_tutari, :mal_hizmet_tutari)
+    INSERT INTO items (document_id, sira_no, aciklama, miktar, birim, birim_fiyat, iskonto_orani, iskonto_tutari, net_satir_tutari, kdv_orani, kdv_tutari, mal_hizmet_tutari)
+    VALUES (:document_id, :sira_no, :aciklama, :miktar, :birim, :birim_fiyat, :iskonto_orani, :iskonto_tutari, :net_satir_tutari, :kdv_orani, :kdv_tutari, :mal_hizmet_tutari)
   `);
 
   db.exec('BEGIN');
@@ -195,28 +226,42 @@ function upsertDocument(db, header, items) {
       .run(header.kaynak_dosya);
 
     const result = insertDoc.run({
-      belge_tipi: header.belge_tipi,
-      belge_no: header.belge_no,
-      ettn: header.ettn,
-      duzenleme_tarihi: header.duzenleme_tarihi,
-      duzenleme_zamani: header.duzenleme_zamani,
-      senaryo: header.senaryo,
-      fatura_tipi: header.fatura_tipi,
-      satici_id,
-      alici_id,
-      mal_hizmet_toplam_tutari: header.mal_hizmet_toplam_tutari,
+      belge_tipi: header.belge_tipi ?? 'FATURA',
+      belge_no: header.belge_no ?? null,
+      ettn: header.ettn ?? null,
+      duzenleme_tarihi: header.duzenleme_tarihi ?? null,
+      duzenleme_zamani: header.duzenleme_zamani ?? null,
+      senaryo: header.senaryo ?? null,
+      fatura_tipi: header.fatura_tipi ?? null,
+      satici_id: satici_id ?? null,
+      alici_id: alici_id ?? null,
+      mal_hizmet_toplam_tutari: header.mal_hizmet_toplam_tutari ?? null,
       toplam_iskonto: header.toplam_iskonto ?? null,
-      hesaplanan_kdv_toplam: header.hesaplanan_kdv_toplam,
-      vergiler_dahil_toplam_tutar: header.vergiler_dahil_toplam_tutar,
-      odenecek_tutar: header.odenecek_tutar,
-      notlar: header.notlar,
+      kdv_matrahi: header.kdv_matrahi ?? null,
+      hesaplanan_kdv_toplam: header.hesaplanan_kdv_toplam ?? null,
+      vergiler_dahil_toplam_tutar: header.vergiler_dahil_toplam_tutar ?? null,
+      odenecek_tutar: header.odenecek_tutar ?? null,
+      notlar: header.notlar ?? null,
       kaynak_dosya: header.kaynak_dosya,
-      parse_durumu: header.parse_durumu,
-      parse_notu: header.parse_notu,
+      parse_durumu: header.parse_durumu ?? 'BASARILI',
+      parse_notu: header.parse_notu ?? null,
     });
     const document_id = Number(result.lastInsertRowid);
     for (const item of items) {
-      insertItem.run({ ...item, document_id });
+      insertItem.run({
+        sira_no: item.sira_no ?? null,
+        aciklama: item.aciklama ?? null,
+        miktar: item.miktar ?? null,
+        birim: item.birim ?? null,
+        birim_fiyat: item.birim_fiyat ?? null,
+        iskonto_orani: item.iskonto_orani ?? 0,
+        iskonto_tutari: item.iskonto_tutari ?? 0,
+        net_satir_tutari: item.net_satir_tutari ?? null,
+        kdv_orani: item.kdv_orani ?? null,
+        kdv_tutari: item.kdv_tutari ?? null,
+        mal_hizmet_tutari: item.mal_hizmet_tutari ?? null,
+        document_id,
+      });
     }
     db.exec('COMMIT');
     return document_id;

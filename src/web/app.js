@@ -17,6 +17,37 @@ function hucre(v) {
   return v == null || v === '' ? '-' : esc(String(v));
 }
 
+/**
+ * Item için net birim maliyeti ve belirlenen kar oranına göre KDV dahil / hariç satış fiyatını hesaplar.
+ * Net Satır Tutarı = (Miktar × Birim Fiyat) - İskonto Tutarı
+ * Gerçek Birim Maliyet = Net Satır Tutarı / Miktar
+ * KDV Hariç Satış Fiyatı = Gerçek Birim Maliyet × (1 + KarOranı / 100)
+ * KDV Dahil Satış Fiyatı = KDV Hariç Satış Fiyatı × (1 + KDV_Oranı / 100)
+ */
+function calculateSellingPrice(item, marginPercent) {
+  if (!item || item.birim_fiyat == null) return null;
+
+  const miktar = (item.miktar != null && item.miktar > 0) ? item.miktar : 1;
+  const birimFiyat = item.birim_fiyat || 0;
+  const iskontoTutari = item.iskonto_tutari || 0;
+  const kdvOrani = item.kdv_orani || 0;
+
+  const netSatirTutari = item.net_satir_tutari != null
+    ? item.net_satir_tutari
+    : Math.max(0, (miktar * birimFiyat) - iskontoTutari);
+
+  const birimMaliyet = miktar > 0 ? (netSatirTutari / miktar) : (birimFiyat - iskontoTutari);
+  const birimSatisKdvHaric = birimMaliyet * (1 + marginPercent / 100);
+  const birimSatisKdvDahil = birimSatisKdvHaric * (1 + kdvOrani / 100);
+
+  return {
+    netSatirTutari,
+    birimMaliyet,
+    birimSatisKdvHaric,
+    birimSatisKdvDahil,
+  };
+}
+
 async function api(url, opts = {}) {
   const fetchOpts = { method: opts.method || 'GET' };
   if (opts.body !== undefined) {
@@ -227,11 +258,20 @@ async function loadKalemArama(page = 0) {
       <p class="info">${json.total.toLocaleString('tr-TR')} kalem bulundu (bu sayfadaki tutar toplamı: ${fmtPara(toplamTutar)} TL).</p>
       <table>
         <thead>
-          <tr><th>Belge No</th><th>Tarih</th><th>Satıcı</th><th>Açıklama</th><th class="num">Miktar</th><th class="num">Birim Fiyat</th><th class="num">KDV%</th><th class="num">Tutar</th><th class="num satis-fiyati" title="Kar oranına göre tarayıcıda hesaplanır; kayıtlı veri değildir">Satış Fiyatı</th></tr>
+          <tr>
+            <th>Belge No</th><th>Tarih</th><th>Satıcı</th><th>Açıklama</th>
+            <th class="num">Miktar</th><th class="num">Birim Fiyat</th><th class="num">İskonto</th>
+            <th class="num" title="Net Birim Maliyet (KDV Hariç İskontolu)">Birim Maliyet</th>
+            <th class="num">KDV%</th><th class="num">Tutar</th>
+            <th class="num satis-fiyati" title="Kâr oranına ve KDV dahil net maliyete göre hesaplanır">Satış Fiyatı (KDV Dahil)</th>
+          </tr>
         </thead>
         <tbody>
           ${json.data.map((i) => {
-            const satisFiyati = i.birim_fiyat != null ? i.birim_fiyat * (1 + profitMargin / 100) : null;
+            const calc = calculateSellingPrice(i, profitMargin);
+            const birimMaliyetStr = calc ? fmtPara(calc.birimMaliyet) : '-';
+            const satisFiyatiKdvDahilStr = calc ? fmtPara(calc.birimSatisKdvDahil) : '-';
+            const iskontoStr = i.iskonto_tutari ? `${fmtPara(i.iskonto_tutari)} TL` : '-';
             return `
               <tr data-id="${i.document_id}">
                 <td>${hucre(i.belge_no)}</td>
@@ -240,9 +280,11 @@ async function loadKalemArama(page = 0) {
                 <td>${hucre(i.aciklama)}</td>
                 <td class="num">${i.miktar != null ? esc(String(i.miktar)) : '-'} ${hucre(i.birim) === '-' ? '' : hucre(i.birim)}</td>
                 <td class="num">${i.birim_fiyat != null ? fmtPara(i.birim_fiyat) : '-'}</td>
+                <td class="num">${iskontoStr}</td>
+                <td class="num">${birimMaliyetStr}</td>
                 <td class="num">${i.kdv_orani != null ? '%' + esc(String(i.kdv_orani)) : '-'}</td>
                 <td class="num">${i.mal_hizmet_tutari != null ? fmtPara(i.mal_hizmet_tutari) : '-'}</td>
-                <td class="num satis-fiyati">${satisFiyati != null ? fmtPara(satisFiyati) : '-'}</td>
+                <td class="num satis-fiyati">${satisFiyatiKdvDahilStr}</td>
               </tr>`;
           }).join('')}
         </tbody>
@@ -563,6 +605,8 @@ function renderDetail(d) {
     <p class="detail-section-title">Tutarlar</p>
     <div class="detail-grid">
       ${field('Mal/Hizmet Toplam', d.mal_hizmet_toplam_tutari != null ? fmtPara(d.mal_hizmet_toplam_tutari) + ' TL' : null)}
+      ${field('Toplam İskonto', d.toplam_iskonto ? fmtPara(d.toplam_iskonto) + ' TL' : null)}
+      ${field('KDV Matrahı (Net)', d.kdv_matrahi != null ? fmtPara(d.kdv_matrahi) + ' TL' : null)}
       ${field('Hesaplanan KDV', d.hesaplanan_kdv_toplam != null ? fmtPara(d.hesaplanan_kdv_toplam) + ' TL' : null)}
       ${field('Vergiler Dahil Toplam', d.vergiler_dahil_toplam_tutar != null ? fmtPara(d.vergiler_dahil_toplam_tutar) + ' TL' : null)}
       ${field('Ödenecek Tutar', d.odenecek_tutar != null ? fmtPara(d.odenecek_tutar) + ' TL' : null)}
@@ -574,11 +618,21 @@ function renderDetail(d) {
     ${d.items.length ? `
       <table>
         <thead>
-          <tr><th>#</th><th>Açıklama</th><th class="num">Miktar</th><th>Birim</th><th class="num">Birim Fiyat</th><th class="num">KDV%</th><th class="num">KDV Tutarı</th><th class="num">Tutar</th><th class="num satis-fiyati" title="Kar oranına göre tarayıcıda hesaplanır; kayıtlı veri değildir">Satış Fiyatı</th></tr>
+          <tr>
+            <th>#</th><th>Açıklama</th><th class="num">Miktar</th><th>Birim</th>
+            <th class="num">Birim Fiyat</th><th class="num">İskonto</th>
+            <th class="num" title="Net Birim Maliyet (KDV Hariç İskontolu)">Birim Maliyet</th>
+            <th class="num">KDV%</th><th class="num">KDV Tutarı</th><th class="num">Net Satır Tutarı</th>
+            <th class="num satis-fiyati" title="Kâr oranına ve KDV dahil net maliyete göre hesaplanır">Satış Fiyatı (KDV Dahil)</th>
+          </tr>
         </thead>
         <tbody>
           ${d.items.map((i) => {
-            const satisFiyati = i.birim_fiyat != null ? i.birim_fiyat * (1 + profitMargin / 100) : null;
+            const calc = calculateSellingPrice(i, profitMargin);
+            const birimMaliyetStr = calc ? fmtPara(calc.birimMaliyet) : '-';
+            const satisFiyatiKdvDahilStr = calc ? fmtPara(calc.birimSatisKdvDahil) : '-';
+            const iskontoStr = i.iskonto_tutari ? `${fmtPara(i.iskonto_tutari)} TL` : '-';
+            const netSatirStr = calc ? fmtPara(calc.netSatirTutari) : (i.mal_hizmet_tutari != null ? fmtPara(i.mal_hizmet_tutari) : '-');
             return `
               <tr class="no-click">
                 <td>${hucre(i.sira_no)}</td>
@@ -586,10 +640,12 @@ function renderDetail(d) {
                 <td class="num">${i.miktar != null ? esc(String(i.miktar)) : '-'}</td>
                 <td>${hucre(i.birim)}</td>
                 <td class="num">${i.birim_fiyat != null ? fmtPara(i.birim_fiyat) : '-'}</td>
+                <td class="num">${iskontoStr}</td>
+                <td class="num">${birimMaliyetStr}</td>
                 <td class="num">${i.kdv_orani != null ? '%' + esc(String(i.kdv_orani)) : '-'}</td>
                 <td class="num">${i.kdv_tutari != null ? fmtPara(i.kdv_tutari) : '-'}</td>
-                <td class="num">${i.mal_hizmet_tutari != null ? fmtPara(i.mal_hizmet_tutari) : '-'}</td>
-                <td class="num satis-fiyati">${satisFiyati != null ? fmtPara(satisFiyati) : '-'}</td>
+                <td class="num">${netSatirStr}</td>
+                <td class="num satis-fiyati">${satisFiyatiKdvDahilStr}</td>
               </tr>`;
           }).join('')}
         </tbody>

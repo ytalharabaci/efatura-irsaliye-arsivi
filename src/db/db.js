@@ -84,7 +84,11 @@ function runMigrations(db) {
       db.exec('COMMIT');
     } catch (err) {
       db.exec('ROLLBACK');
-      throw new Error(`Migration başarısız (${file}): ${err.message}`);
+      if (err.message.includes('duplicate column name')) {
+        db.prepare('INSERT OR IGNORE INTO schema_migrations (name) VALUES (?)').run(file);
+      } else {
+        throw new Error(`Migration başarısız (${file}): ${err.message}`);
+      }
     }
   }
 }

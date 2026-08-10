@@ -43,6 +43,18 @@ if (process.env.SECRET_PATH) {
 if (process.env.DB_PATH) {
   env.push({ name: 'DB_PATH', value: process.env.DB_PATH });
 }
+if (process.env.LLM_API_KEY) {
+  env.push({ name: 'LLM_API_KEY', value: process.env.LLM_API_KEY });
+}
+if (process.env.LLM_BASE_URL) {
+  env.push({ name: 'LLM_BASE_URL', value: process.env.LLM_BASE_URL });
+}
+if (process.env.LLM_MODEL) {
+  env.push({ name: 'LLM_MODEL', value: process.env.LLM_MODEL });
+}
+if (process.env.ENABLE_LLM_AUTO_PARSER) {
+  env.push({ name: 'ENABLE_LLM_AUTO_PARSER', value: process.env.ENABLE_LLM_AUTO_PARSER });
+}
 
 const svc = new Service({
   name: 'EFaturaArsivServisi',

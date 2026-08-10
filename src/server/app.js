@@ -119,6 +119,7 @@ app.use('/api/items', require('./routes/items_search'));
 app.use('/api/items', require('./routes/items_crud'));
 app.use('/api/taraflar', require('./routes/taraflar'));
 app.use('/api/upload', require('./routes/upload'));
+app.use('/api/extractors', require('./routes/extractors'));
 
 // Bilinmeyen API yolu → JSON 404 (SPA fallback'ine düşüp HTML dönmesin)
 app.use('/api', (req, res) => {

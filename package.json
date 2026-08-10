@@ -1,6 +1,6 @@
 {
   "name": "efatura-irsaliye-arsivi",
-  "version": "1.4.1",
+  "version": "1.5.0",
   "description": "GİB e-Fatura/e-İrsaliye PDF arşiv ve sorgulama sistemi",
   "main": "src/server/app.js",
   "author": "Yusuf Talha ARABACI",
@@ -16,6 +16,7 @@
     "start": "node --experimental-sqlite src/server/app.js",
     "test": "node --experimental-sqlite --test test/*.test.js",
     "ingest": "node --experimental-sqlite src/ingest/ingestRunner.js",
+    "generate-parser": "node scripts/generate-parser.js",
     "backup": "node --experimental-sqlite scripts/backup-db.js",
     "service:install": "node scripts/service-install.js",
     "service:uninstall": "node scripts/service-uninstall.js",

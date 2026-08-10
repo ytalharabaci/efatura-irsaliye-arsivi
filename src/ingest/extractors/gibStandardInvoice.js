@@ -119,11 +119,14 @@ function extract(text) {
   header.odenecek_tutar = parseTrNumber(
     matchField(text, /[ÖO]denecek Tutar\s*:?\s*([\d.,]+)\s*TL/)
   );
-  // Belge geneli iskonto: kalem tutarları iskontolu, "Mal / Hizmet Toplam
-  // Tutarı" ise iskontosuz yazılır — doğrulama bu farkı bilmeli.
   header.toplam_iskonto = parseTrNumber(
     matchField(text, /Toplam [İI]skonto\s*(?:\([^)]*\))?\s*:?\s*([\d.,]+)\s*TL/)
-  );
+  ) || 0;
+  if (header.mal_hizmet_toplam_tutari != null) {
+    header.kdv_matrahi = Math.round((header.mal_hizmet_toplam_tutari - header.toplam_iskonto) * 100) / 100;
+  } else {
+    header.kdv_matrahi = null;
+  }
 
   // --- Notlar (Yalnız + İrsaliye yerine geçer vb.) ---
   const notlarParts = [];
@@ -405,12 +408,25 @@ function extractItems(lines) {
           : null;
       }
 
+      let iskontoTutarNum = 0;
+      let iskontoOranNum = 0;
+      let netSatirTutariNum = null;
+
+      if (tutarNum != null) {
+        netSatirTutariNum = tutarNum;
+      } else if (miktarNum != null && birimFiyatNum != null) {
+        netSatirTutariNum = Math.round((miktarNum * birimFiyatNum - iskontoTutarNum) * 100) / 100;
+      }
+
       const item = {
         sira_no: siraNo != null ? parseInt(siraNo, 10) : items.length + 1,
         aciklama: aciklama || null,
         miktar: miktarNum,
         birim: birim ? birim.trim() : null,
         birim_fiyat: birimFiyatNum,
+        iskonto_orani: iskontoOranNum,
+        iskonto_tutari: iskontoTutarNum,
+        net_satir_tutari: netSatirTutariNum,
         kdv_orani: oranNum,
         kdv_tutari: kdvNum,
         mal_hizmet_tutari: tutarNum,

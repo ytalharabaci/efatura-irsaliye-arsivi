@@ -32,6 +32,7 @@ router.get('/', (req, res) => {
 
   const rows = db.prepare(`
     SELECT i.id, i.sira_no, i.aciklama, i.miktar, i.birim, i.birim_fiyat,
+           i.iskonto_orani, i.iskonto_tutari, i.net_satir_tutari,
            i.kdv_orani, i.kdv_tutari, i.mal_hizmet_tutari,
            d.id as document_id, d.belge_no, d.duzenleme_tarihi,
            s.unvan as satici_unvan, a.unvan as alici_unvan, d.parse_durumu
