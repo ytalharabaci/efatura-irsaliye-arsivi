@@ -86,7 +86,7 @@ module.exports = { extract };
   const dsConfig = resolveLlmConfig({ provider: 'deepseek', apiKey: 'test_ds_key' });
   assert.equal(dsConfig.provider, 'deepseek');
   assert.equal(dsConfig.baseUrl, 'https://api.deepseek.com');
-  assert.equal(dsConfig.model, 'deepseek-v4-flash');
+  assert.equal(dsConfig.model, 'deepseek-v4-pro');
 
   // GLM provider çözümleme testi
   const glmConfig = resolveLlmConfig({ provider: 'glm', apiKey: 'test_glm_key' });

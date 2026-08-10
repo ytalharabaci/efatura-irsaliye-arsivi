@@ -57,8 +57,14 @@ async function ingestSegment(db, segmentText, kaynak_dosya, rawText, options = {
   const { header, items } = dispatched.result;
   const validation = validateDocument(header, items);
 
+  const isDynamic = Boolean(dispatched.name && dispatched.name.startsWith('dynamic_'));
+  let parseNotu = validation.notlar.length ? validation.notlar.join('; ') : '';
+  if (isDynamic) {
+    parseNotu = parseNotu ? `🤖 Yapay Zeka Özel Parser; ${parseNotu}` : '🤖 Yapay Zeka Özel Parser';
+  }
+
   header.parse_durumu = validation.durum;
-  header.parse_notu = validation.notlar.length ? validation.notlar.join('; ') : null;
+  header.parse_notu = parseNotu || null;
   header.kaynak_dosya = kaynak_dosya;
 
   let document_id;
@@ -72,6 +78,7 @@ async function ingestSegment(db, segmentText, kaynak_dosya, rawText, options = {
     ettn: header.ettn ?? null,
     kalem_sayisi: items.length,
     extractor: dispatched.name,
+    is_dynamic_parser: isDynamic,
   };
 }
 

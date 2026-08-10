@@ -74,6 +74,36 @@ tr:hover td.satis-fiyati { background: #f5ebc9; }
 .badge-SUPHELI    { background: #fef3c7; color: #92400e; }
 .badge-HATALI     { background: #fee2e2; color: #991b1b; }
 .badge-TANINMAYAN { background: #e5e7eb; color: #374151; }
+.badge-ai         { background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%); color: #ffffff; margin-left: 4px; box-shadow: 0 1px 3px rgba(168,85,247,0.3); }
+
+/* Yapay Zeka Parser Bilgilendirme Kutuları */
+.ai-info-box {
+  background: linear-gradient(135deg, #f3e8ff 0%, #e0e7ff 100%);
+  border: 1px solid #c084fc;
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 13px;
+  color: #4c1d95;
+}
+.ai-info-box b { font-weight: 600; color: #581c87; }
+.ai-sparkle { font-size: 20px; line-height: 1; }
+
+.ai-parsed-banner {
+  background: linear-gradient(135deg, #ede9fe 0%, #ddd6fe 100%);
+  border-left: 4px solid #8b5cf6;
+  color: #4c1d95;
+  padding: 10px 14px;
+  border-radius: 6px;
+  font-size: 13px;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
 
 /* PDF yükleme alanı */
 #drop-zone {

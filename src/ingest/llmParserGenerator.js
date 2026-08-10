@@ -10,7 +10,7 @@ const PROVIDERS = {
     id: 'deepseek',
     name: 'DeepSeek (V4 Flash / V4 Pro)',
     baseUrl: 'https://api.deepseek.com',
-    defaultModel: 'deepseek-v4-flash',
+    defaultModel: 'deepseek-v4-pro',
     models: ['deepseek-v4-flash', 'deepseek-v4-pro'],
     envKeys: ['DEEPSEEK_API_KEY', 'LLM_API_KEY'],
   },
