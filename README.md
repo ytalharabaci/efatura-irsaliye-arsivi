@@ -37,10 +37,11 @@ OCR (Tesseract vb.) hem gereksizdir hem de daha hataya açık bir yaklaşım olu
   - Taraf (satıcı/alıcı) bilgisi düzeltme — o tarafın geçtiği tüm belgelere yansır
   - **Yeniden Doğrula**: düzeltme sonrası kalem toplamlarının başlıkla tutup
     tutmadığını kontrol edip parse durumunu günceller
-- Gözden geçirme kuyruğu: ŞÜPHELİ/HATALI belgeler sekme rozetiyle takip edilir
-- **Kar Oranı**: sağ üstten girilen yüzde, alış (birim) fiyatının yanında
-  hesaplanmış **Satış Fiyatı** sütunu olarak kalem listelerinde ve belge
-  detayında gösterilir; tercih tarayıcıda saklanır, veritabanına yazılmaz
+- **Yapay Zeka (LLM Auto-Parser) & KVKK Maskeleme**: Tanınmayan/bilinmeyen e-fatura şablonlarıyla karşılaşıldığında, TCKN/VKN/Adres gibi hassas veriler KVKK maskelemesinden geçirilerek LLM (DeepSeek / GLM / OpenAI) vasıtasıyla o şablona özel bir JavaScript extractor kütüphanesi üretilir ve sunucuya yerel olarak kaydedilir.
+- **Akıllı Fallback (Smart Fallback) Mimarisi**: Şablon ayrıştırma jenerasyonunda ilk aşamada süper hızlı `deepseek-v4-flash` (~1-2s) çalıştırılır; karmaşık şablonlarda veya yetersizlikte otomatik olarak derin muhakeme yapan `deepseek-v4-pro` modeline geçilir.
+- **Net Satır Maliyeti & İskonto Bazlı Kâr Hesaplaması**: Kâr marjı ve Satış Fiyatı hesaplamaları ham birim fiyattan değil, mali standartlara uygun olarak **Net Satır Maliyeti** ($[Miktar \times Birim Fiyat] - İskonto$) üzerinden hesaplanır.
+- **Web Arayüzü İbareleri & AI Rozetleri**: Yapay Zeka ile parse edilmiş belgeler panellerde mor `🤖 AI Parser` rozeti ve özel bilgilendirme kartlarıyla işaretlenir.
+- **Kar Oranı**: sağ üstten girilen yüzde, net birim maliyetinin yanında hesaplanmış **Satış Fiyatı (KDV Dahil)** sütunu olarak kalem listelerinde ve belge detayında gösterilir; tercih tarayıcıda saklanır, veritabanına yazılmaz
 
 ## Güvenlik notları
 

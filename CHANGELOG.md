@@ -5,6 +5,44 @@ Bu projedeki dikkate değer değişiklikler bu dosyada belgelenir.
 Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/) standardına,
 sürümleme [Semantic Versioning](https://semver.org/lang/tr/) kurallarına uyar.
 
+## [1.5.3] - 2026-08-11
+
+### Eklendi
+
+- **Akıllı Fallback (Smart Fallback) Mimarisi (`deepseek-v4-flash` → `deepseek-v4-pro`)**:
+  - Bilinmeyen fatura şablonları için ilk aşamada süper hızlı `deepseek-v4-flash` çalıştırılır (%95+ hız avantajı, ~1-2 saniye).
+  - Üretilen koddaki sözdizim/doğrulama yetersiz kalırsa otomatik olarak derin analiz kabiliyetine sahip `deepseek-v4-pro` modeline düşülür.
+
+## [1.5.2] - 2026-08-10
+
+### Eklendi
+
+- **Web Arayüzünde AI Auto-Parser Görsel İbareleri ve Rozetleri**:
+  - Belgeler tablosunda ve Gözden Geçir sekmesinde AI ile parse edilmiş kayıtların yanında mor `🤖 AI Parser` rozeti gösterimi.
+  - PDF Yükle sekmesinde Yapay Zeka Auto-Parser desteği aktif bilgilendirme kartı.
+  - Belge Detay modalında AI Parser ile üretilmiş şablonlar için özel uyarı paneli.
+
+## [1.5.1] - 2026-08-10
+
+### Güncellendi
+
+- **DeepSeek V4 Model İsimlendirmeleri**:
+  - Legacy olan `deepseek-chat` ve `deepseek-reasoner` isimlendirmeleri güncel DeepSeek V4 modelleri (`deepseek-v4-flash` ve `deepseek-v4-pro`) ile güncellendi.
+
+## [1.5.0] - 2026-08-10
+
+### Eklendi
+
+- **Dinamik LLM Parser Jeneratörü (Auto-Parser)**:
+  - Tanınmayan e-fatura/e-irsaliye şablonlarında otomatik olarak LLM sunucusu çağrılarak o şablona özel yerel JavaScript extractor kütüphanesi üretilmesi ve diske kaydedilmesi.
+- **KVKK Anonymizer (`src/ingest/anonymize.js`)**:
+  - LLM API'sine kişisel/ticari veri sızmasını önlemek amacıyla TCKN, VKN, ETTN UUID, Fatura No, Vergi Dairesi, E-posta, Telefon, Tarih, Tutarlar ve Alıcı Unvan/Adres satırlarının `[VKN_TCKN]`, `[EPOSTA]` vb. biçimde maskelenmesi.
+- **Net Satır Maliyeti & İskonto Bazlı Kâr Hesaplaması**:
+  - DB şemasına `items.iskonto_orani`, `items.iskonto_tutari`, `items.net_satir_tutari` ve `documents.kdv_matrahi` sütunları eklendi (Migration `0003_iskonto_ve_matrah.sql`).
+  - Kâr marjı ve Satış Fiyatı hesabı ticari maliyet standartlarına göre **Net Satır Maliyeti** ($[Miktar \times Birim Fiyat] - İskonto$) üzerinden yapılacak şekilde güncellendi.
+- **REST API Endpoints (`/api/extractors`)**:
+  - Dinamik parser'ları listeleme, silme ve el ile tetikleme endpoints.
+
 ## [1.4.1] - 2026-07-14
 
 ### Düzeltildi

@@ -41,7 +41,7 @@ npm run ingest -- --dir "D:\belgeler" --dry-run
 
 Ya da panel üzerinden: **PDF Yükle** sekmesine belgeleri sürükleyip bırakın.
 
-## Opsiyonel otomasyonlar
+## Opsiyonel otomasyonlar & Yapay Zeka (Auto-Parser)
 
 ```powershell
 # Her gün 21:00'de OneDrive'a tutarlı veritabanı yedeği
@@ -49,6 +49,10 @@ npm run task:install-backup
 
 # Her gün 07:00'de belirlenen klasörü otomatik içe aktar
 $env:INGEST_DIR="D:\belgeler"; npm run task:install-ingest
+
+# Yapay Zeka (LLM Auto-Parser) desteği (Tanınmayan PDF'lerde otomatik parser yazma)
+$env:LLM_API_KEY="sk-f866f..."; $env:LLM_PROVIDER="deepseek"
+npm run service:install
 ```
 
 ## Güncelleme (yeni sürüme geçiş)
