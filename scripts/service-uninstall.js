@@ -15,16 +15,32 @@ const svc = new Service({
   script: path.join(__dirname, '..', 'src', 'server', 'app.js'),
 });
 
-svc.on('uninstall', () => {
-  console.log('Servis kaldırıldı.');
+function forceRemoveService() {
+  const names = ['efaturaarsivservisi.exe', 'EFaturaArsivServisi', 'efaturaarsivservisi'];
+  for (const name of names) {
+    try { execFileSync('sc.exe', ['stop', name], { stdio: 'ignore' }); } catch { /* ignore */ }
+    try { execFileSync('sc.exe', ['delete', name], { stdio: 'ignore' }); } catch { /* ignore */ }
+  }
   try {
     execFileSync('netsh', ['advfirewall', 'firewall', 'delete', 'rule', 'name=EFaturaArsivi'], { stdio: 'ignore' });
     console.log('Güvenlik duvarı kuralı kaldırıldı (EFaturaArsivi).');
   } catch { /* kural yoktu */ }
+}
+
+svc.on('uninstall', () => {
+  console.log('Servis (node-windows) kaldırıldı.');
+  forceRemoveService();
 });
 
 svc.on('error', (err) => {
-  console.error('Servis kaldırma hatası:', err);
+  console.log('node-windows kaldırıcı uyarısı:', err && err.message ? err.message : err);
+  console.log('Servis sc.exe ile doğrudan kaldırılıyor...');
+  forceRemoveService();
 });
 
-svc.uninstall();
+try {
+  svc.uninstall();
+} catch (err) {
+  console.log('Servis kaldırma hatası:', err.message);
+  forceRemoveService();
+}

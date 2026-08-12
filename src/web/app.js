@@ -452,8 +452,9 @@ async function yukleDosyalar(files) {
         const isAi = belge.is_dynamic_parser || (belge.mesaj && belge.mesaj.includes('Yapay Zeka'));
         const aiBadge = isAi ? '<span class="badge badge-ai" title="Yapay Zeka (LLM) tarafından özel parser yazıldı">🤖 AI Parser</span>' : '';
         const badge = `<span class="badge badge-${esc(belge.durum)}">${esc(belge.durum)}</span>${aiBadge}`;
+        const dosyaAdMetni = belgeler.length > 1 ? `${f.name} (#${idx + 1})` : f.name;
         satir.innerHTML = `
-          <td>${esc(dosyaAd)}</td>
+          <td>${esc(dosyaAdMetni)}</td>
           <td>${badge}</td>
           <td>${hucre(belge.belge_no)}</td>
           <td class="num">${belge.kalem_sayisi != null ? belge.kalem_sayisi : '-'}</td>

@@ -29,13 +29,34 @@ Write-Host "[OK] Node.js $nodeVer" -ForegroundColor Green
 
 # --- 2. pdftotext (poppler) kontrolü ---
 $pdftotext = Get-Command pdftotext -ErrorAction SilentlyContinue
-if ($pdftotext) {
+$popplerAdaylar = @(
+    'C:\poppler\pdftotext.exe',
+    'C:\poppler\Library\bin\pdftotext.exe',
+    'C:\poppler\bin\pdftotext.exe'
+)
+$bulunanPoppler = $null
+foreach ($aday in $popplerAdaylar) {
+    if (Test-Path $aday) {
+        $bulunanPoppler = $aday
+        break
+    }
+}
+
+if ($bulunanPoppler) {
+    $env:PDFTOTEXT_PATH = $bulunanPoppler
+    Write-Host "[OK] pdftotext (poppler) bulundu: $bulunanPoppler" -ForegroundColor Green
+} elseif ($pdftotext -and $pdftotext.Source -notlike '*miktex*') {
     Write-Host "[OK] pdftotext bulundu: $($pdftotext.Source)" -ForegroundColor Green
 } else {
-    Write-Host "[UYARI] pdftotext PATH'te bulunamadi." -ForegroundColor Yellow
+    if ($pdftotext -and $pdftotext.Source -like '*miktex*') {
+        Write-Host "[UYARI] MiKTeX pdftotext bulundu fakat MiKTeX -layout secenegini desteklemez." -ForegroundColor Yellow
+        Write-Host "  Lutfen poppler-windows'u C:\poppler konumuna cikarin."
+    } else {
+        Write-Host "[UYARI] pdftotext PATH'te veya C:\poppler konumunda bulunamadi." -ForegroundColor Yellow
+    }
     Write-Host "  PDF ice aktarmak icin poppler-windows gereklidir:"
     Write-Host "  https://github.com/oschwartz10612/poppler-windows/releases"
-    Write-Host "  -> Zip'i C:\poppler konumuna cikarin ve C:\poppler\Library\bin klasorunu PATH'e ekleyin."
+    Write-Host "  -> Zip'i C:\poppler konumuna cikarin (C:\poppler\pdftotext.exe veya C:\poppler\Library\bin\pdftotext.exe)."
     Write-Host "  (Web arayuzu pdftotext olmadan da calisir; yalnizca PDF isleme icin gerekir.)"
 }
 
@@ -52,6 +73,46 @@ if (Test-Path (Join-Path $root 'node_modules\express')) {
         exit 1
     }
     Write-Host "[OK] Bagimliliklar yuklendi." -ForegroundColor Green
+}
+
+# --- 3.5 Yapay Zeka (LLM Auto-Parser) yapılandırması ---
+Write-Host ""
+Write-Host "Yapay Zeka (LLM Auto-Parser) Destegi:" -ForegroundColor Cyan
+Write-Host "  Taninmayan e-Fatura/e-Irsaliye PDF sablonlarinda otomatik parser uretmek icin"
+Write-Host "  LLM API Key (DeepSeek / OpenAI / GLM) tanimlayabilirsiniz."
+$llmKur = Read-Host "Yapay Zeka (DeepSeek / LLM) API key tanimlamak ister misiniz? (E/h)"
+
+if ($llmKur -ne 'h' -and $llmKur -ne 'H') {
+    Write-Host "Saglayici secin:"
+    Write-Host "  [1] DeepSeek (onerilen - v4-flash / v4-pro)"
+    Write-Host "  [2] OpenAI (gpt-4o / mini)"
+    Write-Host "  [3] GLM (glm-4)"
+    Write-Host "  [4] Diger / Ozel"
+    $llmProviderSecim = Read-Host "Seciminiz (1/2/3/4, varsayilan 1)"
+    
+    switch ($llmProviderSecim) {
+        '2' { $provider = 'openai' }
+        '3' { $provider = 'glm' }
+        '4' { $provider = 'custom' }
+        default { $provider = 'deepseek' }
+    }
+    
+    $apiKey = Read-Host "$provider API Key girin"
+    if ($apiKey) {
+        $env:LLM_PROVIDER = $provider
+        if ($provider -eq 'deepseek') {
+            $env:DEEPSEEK_API_KEY = $apiKey
+        } elseif ($provider -eq 'openai') {
+            $env:OPENAI_API_KEY = $apiKey
+        } elseif ($provider -eq 'glm') {
+            $env:GLM_API_KEY = $apiKey
+        }
+        $env:LLM_API_KEY = $apiKey
+        $env:ENABLE_LLM_AUTO_PARSER = 'true'
+        Write-Host "[OK] Yapay zeka destegi aktif ($provider)." -ForegroundColor Green
+    } else {
+        Write-Host "[UYARI] API Key bos birakildi; LLM Auto-Parser pasif kalacak." -ForegroundColor Yellow
+    }
 }
 
 # --- 4. Kurulum tipi seçimi ---
@@ -73,10 +134,10 @@ switch ($secim) {
     }
     '2' {
         # Eski kurulum varsa node-windows yeni ayarlari uygulamaz; once kaldirilmali
-        $mevcutServis = Get-Service -Name 'EFaturaArsivServisi' -ErrorAction SilentlyContinue
+        $mevcutServis = Get-Service -ErrorAction SilentlyContinue | Where-Object { $_.Name -like '*efaturaarsiv*' -or $_.DisplayName -like '*EFaturaArsiv*' }
         if ($mevcutServis) {
             Write-Host ""
-            Write-Host "[UYARI] EFaturaArsivServisi zaten kurulu (durum: $($mevcutServis.Status))." -ForegroundColor Yellow
+            Write-Host "[UYARI] EFaturaArsivServisi zaten kurulu (durum: $($mevcutServis[0].Status))." -ForegroundColor Yellow
             Write-Host "Ayar degistirmek veya guncellemek icin once kaldirilmasi gerekir."
             $kaldir = Read-Host "Mevcut servis kaldirilip yeni ayarlarla kurulsun mu? (E/h)"
             if ($kaldir -eq 'h' -or $kaldir -eq 'H') {
@@ -87,10 +148,19 @@ switch ($secim) {
             npm run service:uninstall
             Pop-Location
             Start-Sleep -Seconds 2
-            if (Get-Service -Name 'EFaturaArsivServisi' -ErrorAction SilentlyContinue) {
-                Write-Host "[HATA] Servis kaldirilamadi - buyuk ihtimalle baska bir klasorden kurulmustu." -ForegroundColor Red
-                Write-Host "Servisi ILK kurdugunuz klasordeki KALDIR.bat ile (yoksa orada"
-                Write-Host "'npm run service:uninstall' komutuyla) kaldirin, sonra bu kurulumu tekrar baslatin."
+            $kalanServis = Get-Service -ErrorAction SilentlyContinue | Where-Object { $_.Name -like '*efaturaarsiv*' -or $_.DisplayName -like '*EFaturaArsiv*' }
+            if ($kalanServis) {
+                Write-Host "[BILGI] Servis baska bir klasorden veya farkli isimle kurulmus olabilir; sc.exe ile dogrudan kaldiriliyor..." -ForegroundColor Yellow
+                foreach ($s in $kalanServis) {
+                    $sName = $s.Name
+                    Start-Process sc.exe -ArgumentList "stop `"$sName`"" -Wait -WindowStyle Hidden -ErrorAction SilentlyContinue
+                    Start-Process sc.exe -ArgumentList "delete `"$sName`"" -Verb RunAs -Wait -WindowStyle Hidden -ErrorAction SilentlyContinue
+                }
+                Start-Sleep -Seconds 2
+            }
+            $kalanServis = Get-Service -ErrorAction SilentlyContinue | Where-Object { $_.Name -like '*efaturaarsiv*' -or $_.DisplayName -like '*EFaturaArsiv*' }
+            if ($kalanServis) {
+                Write-Host "[HATA] Eski servis kaldirilamadi." -ForegroundColor Red
                 exit 1
             }
             Write-Host "[OK] Eski servis kaldirildi." -ForegroundColor Green

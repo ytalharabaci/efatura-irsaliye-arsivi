@@ -6,19 +6,28 @@ const path = require('path');
 const fs = require('fs');
 const execFileAsync = promisify(execFile);
 
-// Windows'ta C:\poppler\pdftotext.exe varsa onu kullan (MiKTeX sürümü -layout desteklemez)
+// Windows'ta C:\poppler altındaki aday yolları denetle (MiKTeX sürümü -layout desteklemez)
 function resolvePdftotextBin() {
-  if (process.env.PDFTOTEXT_PATH) return process.env.PDFTOTEXT_PATH;
-  const windowsFallback = 'C:\\poppler\\pdftotext.exe';
-  if (process.platform === 'win32' && fs.existsSync(windowsFallback)) return windowsFallback;
-  return 'pdftotext';
+  if (process.env.PDFTOTEXT_PATH && fs.existsSync(process.env.PDFTOTEXT_PATH)) {
+    return process.env.PDFTOTEXT_PATH;
+  }
+  if (process.platform === 'win32') {
+    const candidates = [
+      'C:\\poppler\\pdftotext.exe',
+      'C:\\poppler\\Library\\bin\\pdftotext.exe',
+      'C:\\poppler\\bin\\pdftotext.exe',
+    ];
+    for (const cand of candidates) {
+      if (fs.existsSync(cand)) return cand;
+    }
+  }
+  return process.env.PDFTOTEXT_PATH || 'pdftotext';
 }
 
-const PDFTOTEXT_BIN = resolvePdftotextBin();
-
 async function runPdftotext(pdfPath, modeArgs) {
+  const bin = resolvePdftotextBin();
   try {
-    const { stdout } = await execFileAsync(PDFTOTEXT_BIN, [...modeArgs, pdfPath, '-'], {
+    const { stdout } = await execFileAsync(bin, [...modeArgs, pdfPath, '-'], {
       encoding: 'utf8',
       maxBuffer: 10 * 1024 * 1024,
     });

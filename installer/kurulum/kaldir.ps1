@@ -16,7 +16,7 @@ Write-Host "Verileriniz (data\ klasoru: veritabani + PDF'ler) SILINMEZ."      -F
 Write-Host ""
 
 # --- Kurulu bilesenleri tespit et ---
-$servis = Get-Service       -Name 'EFaturaArsivServisi' -ErrorAction SilentlyContinue
+$servis = Get-Service -ErrorAction SilentlyContinue | Where-Object { $_.Name -like '*efaturaarsiv*' -or $_.DisplayName -like '*EFaturaArsiv*' }
 $ingest = Get-ScheduledTask -TaskName 'EFaturaArsivIngest' -ErrorAction SilentlyContinue
 $yedek  = Get-ScheduledTask -TaskName 'EFaturaArsivYedek'  -ErrorAction SilentlyContinue
 
@@ -28,7 +28,7 @@ if (-not $servis -and -not $ingest -and -not $yedek) {
 }
 
 Write-Host "Bulunan bilesenler:"
-if ($servis) { Write-Host "  - Windows servisi   : EFaturaArsivServisi (durum: $($servis.Status))" }
+if ($servis) { Write-Host "  - Windows servisi   : EFaturaArsivServisi (durum: $($servis[0].Status))" }
 if ($ingest) { Write-Host "  - Zamanlanmis gorev : EFaturaArsivIngest (otomatik ice aktarma)" }
 if ($yedek)  { Write-Host "  - Zamanlanmis gorev : EFaturaArsivYedek (otomatik yedek)" }
 Write-Host ""
@@ -47,10 +47,19 @@ if ($servis) {
     npm run service:uninstall
     Pop-Location
     Start-Sleep -Seconds 2
-    if (Get-Service -Name 'EFaturaArsivServisi' -ErrorAction SilentlyContinue) {
-        Write-Host "[HATA] Servis kaldirilamadi - buyuk ihtimalle baska bir klasorden kurulmustu." -ForegroundColor Red
-        Write-Host "Servisi ILK kurdugunuz klasordeki KALDIR.bat ile"
-        Write-Host "(veya o klasorde 'npm run service:uninstall' komutuyla) kaldirin."
+    $kalanServis = Get-Service -ErrorAction SilentlyContinue | Where-Object { $_.Name -like '*efaturaarsiv*' -or $_.DisplayName -like '*EFaturaArsiv*' }
+    if ($kalanServis) {
+        Write-Host "[BILGI] Servis baska bir klasorden veya farkli isimle kurulmus olabilir; sc.exe ile dogrudan kaldiriliyor..." -ForegroundColor Yellow
+        foreach ($s in $kalanServis) {
+            $sName = $s.Name
+            Start-Process sc.exe -ArgumentList "stop `"$sName`"" -Wait -WindowStyle Hidden -ErrorAction SilentlyContinue
+            Start-Process sc.exe -ArgumentList "delete `"$sName`"" -Verb RunAs -Wait -WindowStyle Hidden -ErrorAction SilentlyContinue
+        }
+        Start-Sleep -Seconds 2
+    }
+    $kalanServis = Get-Service -ErrorAction SilentlyContinue | Where-Object { $_.Name -like '*efaturaarsiv*' -or $_.DisplayName -like '*EFaturaArsiv*' }
+    if ($kalanServis) {
+        Write-Host "[HATA] Servis kaldirilamadi." -ForegroundColor Red
         $hata = $true
     } else {
         Write-Host "[OK] Servis ve guvenlik duvari kurali kaldirildi." -ForegroundColor Green

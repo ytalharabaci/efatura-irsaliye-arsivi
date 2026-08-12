@@ -22,7 +22,7 @@ bağlantısı yalnızca ön koşulları (Node.js, poppler) indirmek için gereki
 1. Bu zip'i kalıcı bir klasöre çıkarın (ör. `C:\EFaturaArsivi`).
    *Servis kuracaksanız klasörü sonradan taşımayın.*
 2. **`KUR.bat`** dosyasına çift tıklayın.
-3. Sihirbaz ön koşulları denetler ve iki seçenek sunar:
+3. Sihirbaz ön koşulları denetler, **Yapay Zeka (DeepSeek / LLM API Key)** yapılandırmasını sorar ve ardından çalıştırma seçeneği sunar:
    - **Deneme**: sunucuyu hemen başlatır → <http://localhost:8888>
    - **Windows servisi** (önerilen): bilgisayar her açıldığında otomatik
      başlar. Tek bir UAC (yönetici) onayı ister; kurum ağına açık kurulumda

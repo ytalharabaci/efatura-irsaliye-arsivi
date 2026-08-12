@@ -5,6 +5,22 @@ Bu projedeki dikkate değer değişiklikler bu dosyada belgelenir.
 Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/) standardına,
 sürümleme [Semantic Versioning](https://semver.org/lang/tr/) kurallarına uyar.
 
+## [1.5.4] - 2026-08-12
+
+### Düzeltildi
+
+- **Web Arayüzü PDF Yükleme Çökme Hatası Düzeltildi**:
+  - `src/web/app.js` dosyasındaki `ReferenceError: dosyaAd is not defined` hatası giderildi (`f.name` referansıyla güncellendi).
+- **Kurulum Sihirbazına Etkileşimli Yapay Zeka (DeepSeek / LLM API Key) Adımı Eklendi**:
+  - `KUR.bat` / `kur.ps1` çalıştığında artık kullanıcıya Yapay Zeka (LLM Auto-Parser) sağlayıcısı (DeepSeek / OpenAI / GLM) ve API Key soruluyor.
+  - `service-install.js` scripti `DEEPSEEK_API_KEY`, `OPENAI_API_KEY`, `GLM_API_KEY` ve `LLM_PROVIDER` ortam değişkenlerini Windows Servisine otomatik olarak tanımlıyor.
+
+### Eklendi
+
+- **Otomatik Ön Yüz Testi ve Yayınlama Öncesi Doğrulama Güvencesi**:
+  - `test/webApp.test.js` eklenerek `index.html` ve `app.js` dosyalarının statik, DOM ID ve değişken referans doğrulamaları `npm test` kapsamına alındı.
+  - `package-win.ps1` paketleme scripti öncesine otomatik `npm test` kontrolü yerleştirilerek doğrulanmamış sürümlerin paketlenmesi engellendi.
+
 ## [1.5.3] - 2026-08-11
 
 ### Eklendi

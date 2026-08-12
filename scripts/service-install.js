@@ -43,6 +43,18 @@ if (process.env.SECRET_PATH) {
 if (process.env.DB_PATH) {
   env.push({ name: 'DB_PATH', value: process.env.DB_PATH });
 }
+if (process.env.DEEPSEEK_API_KEY) {
+  env.push({ name: 'DEEPSEEK_API_KEY', value: process.env.DEEPSEEK_API_KEY });
+}
+if (process.env.OPENAI_API_KEY) {
+  env.push({ name: 'OPENAI_API_KEY', value: process.env.OPENAI_API_KEY });
+}
+if (process.env.GLM_API_KEY) {
+  env.push({ name: 'GLM_API_KEY', value: process.env.GLM_API_KEY });
+}
+if (process.env.LLM_PROVIDER) {
+  env.push({ name: 'LLM_PROVIDER', value: process.env.LLM_PROVIDER });
+}
 if (process.env.LLM_API_KEY) {
   env.push({ name: 'LLM_API_KEY', value: process.env.LLM_API_KEY });
 }
@@ -54,6 +66,9 @@ if (process.env.LLM_MODEL) {
 }
 if (process.env.ENABLE_LLM_AUTO_PARSER) {
   env.push({ name: 'ENABLE_LLM_AUTO_PARSER', value: process.env.ENABLE_LLM_AUTO_PARSER });
+}
+if (process.env.PDFTOTEXT_PATH) {
+  env.push({ name: 'PDFTOTEXT_PATH', value: process.env.PDFTOTEXT_PATH });
 }
 
 const svc = new Service({

@@ -14,8 +14,20 @@ $name = "efatura-irsaliye-arsivi-$version-windows"
 
 $dist = Join-Path $root 'dist'
 $stage = Join-Path $dist $name
-if (Test-Path $stage) { Remove-Item -Recurse -Force $stage }
+if (Test-Path $stage) {
+    try { Remove-Item -Recurse -Force $stage -ErrorAction Stop } catch { Start-Sleep -Milliseconds 500; Remove-Item -Recurse -Force $stage -ErrorAction SilentlyContinue }
+}
 New-Item -ItemType Directory -Force $stage | Out-Null
+
+Write-Host "Yayinlama oncesi testler calistiriliyor (npm test)..." -ForegroundColor Cyan
+Push-Location $root
+node --experimental-sqlite --test test/*.test.js
+$testExit = $LASTEXITCODE
+Pop-Location
+if ($testExit -ne 0) {
+    throw "Testler basarisiz oldu! Dogrulanmamis paket olusturulamaz (cikis kodu $testExit)."
+}
+Write-Host "[OK] Tum testler basariyla gecti." -ForegroundColor Green
 
 Write-Host "Paketleniyor: $name"
 
@@ -52,7 +64,7 @@ $zip = Join-Path $dist "$name.zip"
 if (Test-Path $zip) { Remove-Item -Force $zip }
 tar -a -c -f $zip -C $dist $name
 if ($LASTEXITCODE -ne 0) { throw "zip olusturulamadi (tar cikis kodu $LASTEXITCODE)" }
-Remove-Item -Recurse -Force $stage
+try { Remove-Item -Recurse -Force $stage -ErrorAction Stop } catch { Start-Sleep -Milliseconds 500; Remove-Item -Recurse -Force $stage -ErrorAction SilentlyContinue }
 
 $sizeMb = [math]::Round((Get-Item $zip).Length / 1MB, 1)
 Write-Host ""

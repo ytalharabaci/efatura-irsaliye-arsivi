@@ -19,7 +19,11 @@ const path = require('path');
 const { execFileSync, spawnSync } = require('child_process');
 
 // Yükseltilmiş kopyaya taşınacak yapılandırma değişkenleri
-const ENV_KEYS = ['PORT', 'HOST', 'PANEL_USER', 'PANEL_PASS', 'SECRET_PATH', 'DB_PATH'];
+const ENV_KEYS = [
+  'PORT', 'HOST', 'PANEL_USER', 'PANEL_PASS', 'SECRET_PATH', 'DB_PATH',
+  'DEEPSEEK_API_KEY', 'OPENAI_API_KEY', 'GLM_API_KEY', 'LLM_PROVIDER',
+  'LLM_API_KEY', 'LLM_BASE_URL', 'LLM_MODEL', 'ENABLE_LLM_AUTO_PARSER', 'PDFTOTEXT_PATH'
+];
 
 function isElevated() {
   try {
