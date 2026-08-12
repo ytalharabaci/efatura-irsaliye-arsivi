@@ -23,13 +23,23 @@ const DURUM_SIRASI = { BASARILI: 0, SUPHELI: 1, TANINMAYAN: 2, HATALI: 3 };
 async function ingestSegment(db, segmentText, kaynak_dosya, rawText, options = {}) {
   let dispatched = dispatch(segmentText);
 
-  // Eğer hiçbir extractor tanıyamadıysa ve LLM API Anahtarı mevcutsa veya otomatik üretme aktifse:
   const hasLlmKey = Boolean(options.apiKey || process.env.LLM_API_KEY || process.env.OPENAI_API_KEY || process.env.DEEPSEEK_API_KEY);
   const allowAutoLlm = options.autoGenerateParser !== false && (hasLlmKey || process.env.ENABLE_LLM_AUTO_PARSER === 'true');
 
-  if (!dispatched && allowAutoLlm && hasLlmKey) {
+  let validation = null;
+  if (dispatched) {
+    repairDocumentText(dispatched.result, rawText);
+    validation = validateDocument(dispatched.result.header, dispatched.result.items);
+  }
+
+  // Extractor hiç tanımadıysa VEYA statik extractor ŞÜPHELİ/HATALI çıkardıysa LLM Auto-Parser'a başvur:
+  const isInitialDynamic = Boolean(dispatched && dispatched.name && dispatched.name.startsWith('dynamic_'));
+  const needsLlmFallback = !dispatched || (validation && (validation.durum === 'SUPHELI' || validation.durum === 'HATALI') && !isInitialDynamic);
+
+  if (needsLlmFallback && allowAutoLlm && hasLlmKey) {
     try {
-      console.log('[Ingest] Tanınmayan şablon algılandı, KVKK maskelemesi yapılarak LLM ile parser yazdırılıyor...');
+      const sebep = !dispatched ? 'Tanınmayan şablon' : `Statik parser (${dispatched.name}) ${validation.durum} sonuç üretti`;
+      console.log(`[Ingest] ${sebep}, KVKK maskelemesi yapılarak LLM ile parser üretiliyor...`);
       const anonymized = anonymizePdfText(segmentText);
       const genResult = await generateParserFromLayout(anonymized, options);
 
@@ -37,7 +47,16 @@ async function ingestSegment(db, segmentText, kaynak_dosya, rawText, options = {
         const extractorName = `dynamic_${Date.now()}`;
         registerDynamicExtractor(extractorName, genResult.code);
         console.log(`[Ingest] Yeni extractor başarıyla diske kaydedildi: ${extractorName}`);
-        dispatched = dispatch(segmentText);
+        const llmDispatched = dispatch(segmentText);
+        if (llmDispatched) {
+          repairDocumentText(llmDispatched.result, rawText);
+          const llmValidation = validateDocument(llmDispatched.result.header, llmDispatched.result.items);
+          // LLM sonucu BAŞARILI ise veya öncekine kıyasla daha iyi durumdaysa LLM sonucunu üstlen:
+          if (!dispatched || llmValidation.durum === 'BASARILI' || DURUM_SIRASI[llmValidation.durum] < DURUM_SIRASI[validation.durum]) {
+            dispatched = llmDispatched;
+            validation = llmValidation;
+          }
+        }
       } else {
         console.error('[Ingest] LLM Parser üretimi başarısız oldu:', genResult.error);
       }
@@ -50,13 +69,12 @@ async function ingestSegment(db, segmentText, kaynak_dosya, rawText, options = {
     return { durum: 'TANINMAYAN', mesaj: 'Hiçbir extractor bu formatı tanımadı — yeni şablon/extractor gerekebilir' };
   }
 
-  // Kerning artefaktlarını (-layout'un kelime içine soktuğu boşluklar)
-  // -raw çıktısını referans alarak onar: "HO RTUM" → "HORTUM".
-  repairDocumentText(dispatched.result, rawText);
+  if (!validation) {
+    repairDocumentText(dispatched.result, rawText);
+    validation = validateDocument(dispatched.result.header, dispatched.result.items);
+  }
 
   const { header, items } = dispatched.result;
-  const validation = validateDocument(header, items);
-
   const isDynamic = Boolean(dispatched.name && dispatched.name.startsWith('dynamic_'));
   let parseNotu = validation.notlar.length ? validation.notlar.join('; ') : '';
   if (isDynamic) {

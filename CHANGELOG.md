@@ -5,6 +5,15 @@ Bu projedeki dikkate değer değişiklikler bu dosyada belgelenir.
 Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/) standardına,
 sürümleme [Semantic Versioning](https://semver.org/lang/tr/) kurallarına uyar.
 
+## [1.5.5] - 2026-08-12
+
+### Eklendi & İyileştirildi
+
+- **Şüpheli / Hatalı Durumlarda Yapay Zeka (LLM Auto-Parser) Fallback Desteği**:
+  - Statik parser'ların `SUPHELI` veya `HATALI` sonuç ürettiği şablonlarda Yapay Zeka (LLM Auto-Parser) otomatik tetiklenerek daha tutarlı/başarılı bir parser üretme ve belgeyi `BASARILI` duruma yükseltme imkanı eklendi.
+- **Kalem Açıklamalarından Üstbilgi Metadata Temizliği (`gibStandardInvoice.js`)**:
+  - e-Arşiv fatura şablonlarında satıcı adres ve başlık alanlarının (`Pazarlama Limited...`, `VKN:`, `Vergi Dairesi:`, `Senaryo:`, `Fatura Tarihi:` vb.) kalem 1 açıklamasına sızması engellendi.
+
 ## [1.5.4] - 2026-08-12
 
 ### Düzeltildi

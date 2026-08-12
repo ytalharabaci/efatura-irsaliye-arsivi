@@ -59,11 +59,13 @@ $ciExit = $LASTEXITCODE
 Pop-Location
 if ($ciExit -ne 0) { throw "npm ci basarisiz (cikis kodu $ciExit)" }
 
-# --- Zip (tar.exe: standart '/' ayraçlı, her platformda açılabilen zip üretir) ---
+# --- Zip (tar.exe / Compress-Archive) ---
 $zip = Join-Path $dist "$name.zip"
 if (Test-Path $zip) { Remove-Item -Force $zip }
-tar -a -c -f $zip -C $dist $name
-if ($LASTEXITCODE -ne 0) { throw "zip olusturulamadi (tar cikis kodu $LASTEXITCODE)" }
+tar -a -c -f "$zip" -C "$dist" "$name" 2>$null
+if (-not (Test-Path $zip)) {
+    Compress-Archive -Path "$stage\*" -DestinationPath "$zip" -Force
+}
 try { Remove-Item -Recurse -Force $stage -ErrorAction Stop } catch { Start-Sleep -Milliseconds 500; Remove-Item -Recurse -Force $stage -ErrorAction SilentlyContinue }
 
 $sizeMb = [math]::Round((Get-Item $zip).Length / 1MB, 1)

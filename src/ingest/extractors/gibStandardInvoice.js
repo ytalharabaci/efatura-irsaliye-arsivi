@@ -286,6 +286,9 @@ function extractItems(lines) {
   // "TL") — açıklamaya karışmasın.
   const kalintiRe = /^(?:[\d.,]+(?:\s*TL)?|TL)$/;
 
+  // Başlık/satıcı/alıcı üstbilgi alanları kalem açıklamasına karışmasın
+  const headerNoiseRe = /\b(?:VKN|TCKN|Vergi Dairesi|Senaryo|Fatura Tipi|Fatura No|ETTN|SA\s?YIN|[ÖO]zelle[şs]tirme No|Fatura Tarihi|Fatura Saati|[İI]rsaliye No|[İI]rsaliye Tarihi|E-Posta|Web Sitesi)\b/i;
+
   let leadingLines = [];   // sıradaki kalemden önce biriken açıklama satırları
   let pendingSiraNo = null; // bağımsız bir sıra no satırı görüldüyse
   let lastItem = null;      // az önce eklenen kalem — devam satırlarını buna ekle
@@ -380,8 +383,8 @@ function extractItems(lines) {
         }
       }
 
-      const aciklamaParts = leadingLines.slice();
-      if (inlineDesc) aciklamaParts.push(inlineDesc);
+      const aciklamaParts = leadingLines.filter((l) => !headerNoiseRe.test(l));
+      if (inlineDesc && !headerNoiseRe.test(inlineDesc)) aciklamaParts.push(inlineDesc);
       const aciklama = aciklamaParts.join(' ').replace(/\s+/g, ' ').trim();
 
       const miktarNum = parseTrNumber(miktar);
@@ -449,8 +452,8 @@ function extractItems(lines) {
       continue;
     }
 
-    // Sütun taşması artığı (tek başına tutar parçası) — açıklama sayma.
-    if (kalintiRe.test(stripped)) {
+    // Sütun taşması artığı veya üstbilgi metadata satırı — açıklama sayma.
+    if (kalintiRe.test(stripped) || headerNoiseRe.test(stripped)) {
       continue;
     }
 
