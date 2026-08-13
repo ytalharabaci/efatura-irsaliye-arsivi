@@ -115,8 +115,12 @@ router.post('/:id/items', (req, res) => {
   }
 
   const result = db.prepare(`
-    INSERT INTO items (document_id, sira_no, aciklama, miktar, birim, birim_fiyat, kdv_orani, kdv_tutari, mal_hizmet_tutari)
-    VALUES (:document_id, :sira_no, :aciklama, :miktar, :birim, :birim_fiyat, :kdv_orani, :kdv_tutari, :mal_hizmet_tutari)
+    INSERT INTO items (document_id, sira_no, aciklama, miktar, birim, birim_fiyat,
+                       iskonto_orani, iskonto_tutari, net_satir_tutari,
+                       kdv_orani, kdv_tutari, mal_hizmet_tutari)
+    VALUES (:document_id, :sira_no, :aciklama, :miktar, :birim, :birim_fiyat,
+            :iskonto_orani, :iskonto_tutari, :net_satir_tutari,
+            :kdv_orani, :kdv_tutari, :mal_hizmet_tutari)
   `).run({
     document_id: id,
     sira_no: fields.sira_no ?? null,
@@ -124,6 +128,9 @@ router.post('/:id/items', (req, res) => {
     miktar: fields.miktar ?? null,
     birim: fields.birim ?? null,
     birim_fiyat: fields.birim_fiyat ?? null,
+    iskonto_orani: fields.iskonto_orani ?? null,
+    iskonto_tutari: fields.iskonto_tutari ?? null,
+    net_satir_tutari: fields.net_satir_tutari ?? null,
     kdv_orani: fields.kdv_orani ?? null,
     kdv_tutari: fields.kdv_tutari ?? null,
     mal_hizmet_tutari: fields.mal_hizmet_tutari ?? null,

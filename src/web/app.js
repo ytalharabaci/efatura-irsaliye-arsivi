@@ -584,7 +584,7 @@ function renderDetail(d) {
       <span class="badge badge-${esc(d.parse_durumu)}">${esc(d.parse_durumu)}</span>
       ${isAiParsed ? '<span class="badge badge-ai" title="Yapay Zeka (LLM) ile özel üretilmiş parser kullanıldı">🤖 AI Parser</span>' : ''}
     </h2>
-    ${isAiParsed ? '<div class="ai-parsed-banner">🤖 <b>Yapay Zeka Özel Parser:</b> Bu PDF standart şablonlar tarafından okunamadığı için Yapay Zeka (DeepSeek LLM) tarafından özel Parser (çıkartıcı kod) üretilerek ayrıştırılmıştır.</div>' : ''}
+    ${isAiParsed ? '<div class="ai-parsed-banner">🤖 <b>Yapay Zeka Özel Parser:</b> Bu PDF standart şablonlar tarafından okunamadığı için Yapay Zeka (LLM) tarafından özel Parser (çıkartıcı kod) üretilerek ayrıştırılmıştır.</div>' : ''}
     <div class="detail-grid">
       ${field('Düzenleme Tarihi', d.duzenleme_tarihi)}
       ${field('Düzenleme Zamanı', d.duzenleme_zamani)}
@@ -759,7 +759,9 @@ function tarafEditBlok(baslik, prefix, d) {
 function kalemSatiri(i) {
   const inp = (f, v, w) =>
     `<input type="text" data-f="${f}" value="${v == null ? '' : esc(String(v))}" style="width:${w}px" />`;
-  const satisFiyati = i.birim_fiyat != null ? i.birim_fiyat * (1 + profitMargin / 100) : null;
+  // calculateSellingPrice kullanılır: iskonto_tutari ve net_satir_tutari dikkate alınır
+  const calc = calculateSellingPrice(i, profitMargin);
+  const satisFiyatiStr = calc ? fmtPara(calc.birimSatisKdvDahil) : '-';
   return `
     <tr data-item-id="${i.id || ''}" class="no-click">
       <td>${inp('sira_no', i.sira_no, 36)}</td>
@@ -770,7 +772,7 @@ function kalemSatiri(i) {
       <td>${inp('kdv_orani', i.kdv_orani, 50)}</td>
       <td>${inp('kdv_tutari', i.kdv_tutari, 80)}</td>
       <td>${inp('mal_hizmet_tutari', i.mal_hizmet_tutari, 90)}</td>
-      <td class="num satis-fiyati">${satisFiyati != null ? fmtPara(satisFiyati) : '-'}</td>
+      <td class="num satis-fiyati">${satisFiyatiStr}</td>
       <td class="row-actions">
         <button class="btn-kucuk btn-yesil" data-action="kalem-kaydet">Kaydet</button>
         <button class="btn-kucuk btn-kirmizi" data-action="kalem-sil">Sil</button>

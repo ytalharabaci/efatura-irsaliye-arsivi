@@ -84,7 +84,7 @@ $llmKur = Read-Host "Yapay Zeka (DeepSeek / LLM) API key tanimlamak ister misini
 
 if ($llmKur -ne 'h' -and $llmKur -ne 'H') {
     Write-Host "Saglayici secin:"
-    Write-Host "  [1] DeepSeek (onerilen - v4-flash / v4-pro)"
+    Write-Host "  [1] DeepSeek (onerilen - deepseek-chat / deepseek-reasoner)"
     Write-Host "  [2] OpenAI (gpt-4o / mini)"
     Write-Host "  [3] GLM (glm-4)"
     Write-Host "  [4] Diger / Ozel"

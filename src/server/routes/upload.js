@@ -53,7 +53,7 @@ router.post('/', rawPdf, async (req, res, next) => {
     const kaynak_dosya = path.relative(PROJECT_ROOT, hedef);
     const sonuc = await ingestPdf(getDb(), hedef, kaynak_dosya);
 
-    res.status(sonuc.durum === 'HATALI' ? 422 : 200).json({
+    res.status(['HATALI', 'TANINMAYAN'].includes(sonuc.durum) ? 422 : 200).json({
       dosya: path.basename(hedef),
       ...sonuc,
     });

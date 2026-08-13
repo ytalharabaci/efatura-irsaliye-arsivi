@@ -5,6 +5,38 @@ Bu projedeki dikkate değer değişiklikler bu dosyada belgelenir.
 Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/) standardına,
 sürümleme [Semantic Versioning](https://semver.org/lang/tr/) kurallarına uyar.
 
+## [1.6.0] - 2026-08-13
+
+### Düzeltilder (Kritik)
+
+- **`schema.sql` tamamen yeniden yazıldı** (taze kurulum sorunu):
+  - `taraflar` tablosu `schema.sql`'e eksikti; taze kurulumda her ingest `no such table: taraflar` hatasıyla başarısız oluyordu.
+  - `documents` tablosunda `satici_id`, `alici_id`, `toplam_iskonto`, `kdv_matrahi` kolonları eksikti.
+  - `items` tablosunda `iskonto_orani`, `iskonto_tutari`, `net_satir_tutari` kolonları eksikti.
+  - Taze kurulumda tüm tablo ve index'ler eksiksiz oluşturuluyor.
+- **`POST /api/documents/:id/items` eksik kolon hatası düzeltildi**:
+  - Yeni kalem ekleyen INSERT sorgusu `iskonto_orani`, `iskonto_tutari`, `net_satir_tutari` kolonlarını kapsıyor.
+- **`extractors.js` `pdfPath` güvenlik açığı kapatıldı**:
+  - İstemciden gelen `pdfPath` parametresi artık proje kökü içinde olup olmadığı ve `.pdf` uzantısı kontrol edilerek doğrulanıyor; path traversal saldırısı önleniyor.
+
+### Düzeltilder
+
+- **DeepSeek model adları düzeltildi** (`llmParserGenerator.js`):
+  - Var olmayan `deepseek-v4-flash` / `deepseek-v4-pro` adları gerçek DeepSeek API model adları `deepseek-chat` / `deepseek-reasoner` ile değiştirildi.
+  - Akllı Fallback: `deepseek-chat` başarısız kalursa `deepseek-reasoner` (R1) ile otomatik tekrar denemesi.
+  - LLM Sistem Prompt’una `iskonto_orani`, `iskonto_tutari`, `net_satir_tutari` kalem alanları eklendi; LLM üretilen parser’lar artık iskonto bilgilerini de çıkarıyor.
+- **Edit modunda iskonto hesabı düzeltiildi** (`app.js` — `kalemSatiri()`):
+  - `birim_fiyat × (1 + kar%)` yerine `calculateSellingPrice()` kullanılıyor; iskonto ve net satır tutarları dikkate alınıyor.
+- **`parseInt` radix hatası düzeltildi** (`documents_detail.js` satir 10).
+- **`TANINMAYAN` durumda HTTP 200 semantik hatası düzeltildi** (`upload.js`):
+  - Tanınmayan PDF yüklemesinde artık HTTP **422** dönüyor.
+- **`dynamic_deepseek.js` prefix hatası düzeltildi**:
+  - `deepseek.js` olarak kaydedilen dinamik extractor dosyası `dynamic_deepseek.js` olarak yeniden adlandırıldı.
+- **Kurulum/kaldırma scriptleri düzeltildi**:
+  - `ingest-task-uninstall.js` ve `backup-task-uninstall.js`: Görev kurulu değilken çökme yerine temiz çıkış yapıyor.
+  - `kur.ps1` kurulum menüsündeki DeepSeek model adları güncellendi.
+- **`app.js` banner metnindeki hardcoded "DeepSeek LLM" düzeltildi**: artık sağlayicıdan bağımsız "Yapay Zeka (LLM)" yazıyor.
+
 ## [1.5.5] - 2026-08-12
 
 ### Eklendi & İyileştirildi
@@ -211,6 +243,15 @@ sürümleme [Semantic Versioning](https://semver.org/lang/tr/) kurallarına uyar
 - **Windows kurulum paketi**: sürüm eklerinde yayınlanan, bağımlılıkları
   paketlenmiş zip + etkileşimli kurulum sihirbazı (`KUR.bat`)
 
+[1.6.0]: https://github.com/yusufarbc/efatura-irsaliye-arsivi/compare/v1.5.5...v1.6.0
+[1.5.5]: https://github.com/yusufarbc/efatura-irsaliye-arsivi/compare/v1.5.4...v1.5.5
+[1.5.4]: https://github.com/yusufarbc/efatura-irsaliye-arsivi/compare/v1.5.3...v1.5.4
+[1.5.3]: https://github.com/yusufarbc/efatura-irsaliye-arsivi/compare/v1.5.2...v1.5.3
+[1.5.2]: https://github.com/yusufarbc/efatura-irsaliye-arsivi/compare/v1.5.1...v1.5.2
+[1.5.1]: https://github.com/yusufarbc/efatura-irsaliye-arsivi/compare/v1.5.0...v1.5.1
+[1.5.0]: https://github.com/yusufarbc/efatura-irsaliye-arsivi/compare/v1.4.1...v1.5.0
+[1.4.1]: https://github.com/yusufarbc/efatura-irsaliye-arsivi/compare/v1.4.0...v1.4.1
+[1.4.0]: https://github.com/yusufarbc/efatura-irsaliye-arsivi/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/yusufarbc/efatura-irsaliye-arsivi/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/yusufarbc/efatura-irsaliye-arsivi/compare/v1.1.2...v1.2.0
 [1.1.2]: https://github.com/yusufarbc/efatura-irsaliye-arsivi/compare/v1.1.1...v1.1.2

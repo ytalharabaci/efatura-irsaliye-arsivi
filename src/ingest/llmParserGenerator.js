@@ -8,10 +8,10 @@ const vm = require('node:vm');
 const PROVIDERS = {
   deepseek: {
     id: 'deepseek',
-    name: 'DeepSeek (V4 Flash / V4 Pro)',
-    baseUrl: 'https://api.deepseek.com',
-    defaultModel: 'deepseek-v4-flash',
-    models: ['deepseek-v4-flash', 'deepseek-v4-pro'],
+    name: 'DeepSeek (Chat / Reasoner)',
+    baseUrl: 'https://api.deepseek.com/v1',
+    defaultModel: 'deepseek-chat',
+    models: ['deepseek-chat', 'deepseek-reasoner'],
     envKeys: ['DEEPSEEK_API_KEY', 'LLM_API_KEY'],
   },
   glm: {
@@ -104,7 +104,7 @@ module.exports = { extract };
 KURALLAR:
 1. Yanıtında SADECE ve SADECE çalışan JavaScript kodunu ver. Düşünme zinciri veya markdown açıklaması EKLEME. Kod bloğu \`\`\`js ... \`\`\` dışında hiçbir şey yazma.
 2. Koddaki regex'ler Türkçe karakter toleranslı olmalı (örn: \`d[uü]zenleme\`).
-3. Kalem satırlarında \`sira_no\`, \`aciklama\`, \`miktar\`, \`birim\`, \`birim_fiyat\`, \`kdv_orani\`, \`kdv_tutari\`, \`mal_hizmet_tutari\` alanlarını çıkar.
+3. Kalem satırlarında \`sira_no\`, \`aciklama\`, \`miktar\`, \`birim\`, \`birim_fiyat\`, \`iskonto_orani\`, \`iskonto_tutari\`, \`net_satir_tutari\`, \`kdv_orani\`, \`kdv_tutari\`, \`mal_hizmet_tutari\` alanlarını çıkar.
 `;
 
 /**
@@ -262,14 +262,15 @@ async function generateParserFromLayout(anonymizedText, options = {}) {
     };
   }
 
-  // 1. Aşama: İlk olarak varsayılan model (v4-flash) ile hızlıca dene
+  // 1. Aşama: İlk olarak varsayılan model (deepseek-chat) ile dene
   let result = await executeLlmCall(anonymizedText, config);
 
-  // 2. Aşama (Akıllı Fallback): DeepSeek v4-flash yetersiz kaldıysa v4-pro modeline geç
-  if (!result.success && config.provider === 'deepseek' && config.model === 'deepseek-v4-flash' && !options.model) {
-    console.log('[LLM Parser] v4-flash yetersiz kaldı, Akıllı Fallback (deepseek-v4-pro) ile tekrar deneniyor...');
-    const proConfig = { ...config, model: 'deepseek-v4-pro' };
-    result = await executeLlmCall(anonymizedText, proConfig);
+  // 2. Aşama (Akıllı Fallback): deepseek-chat yetersiz kaldıysa deepseek-reasoner (R1) ile tekrar dene.
+  // Yalnızca kullanıcı açıkça model belirtmemişse otomatik fallback devreye girer.
+  if (!result.success && config.provider === 'deepseek' && config.model === 'deepseek-chat' && !options.model) {
+    console.log('[LLM Parser] deepseek-chat yetersiz kaldı, Akıllı Fallback (deepseek-reasoner) ile tekrar deneniyor...');
+    const reasonerConfig = { ...config, model: 'deepseek-reasoner' };
+    result = await executeLlmCall(anonymizedText, reasonerConfig);
   }
 
   return result;

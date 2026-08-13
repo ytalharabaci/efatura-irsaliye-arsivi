@@ -1,6 +1,6 @@
 {
   "name": "efatura-irsaliye-arsivi",
-  "version": "1.5.5",
+  "version": "1.6.0",
   "description": "GİB e-Fatura/e-İrsaliye PDF arşiv ve sorgulama sistemi",
   "main": "src/server/app.js",
   "author": "Yusuf Talha ARABACI",

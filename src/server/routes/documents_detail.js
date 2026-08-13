@@ -7,7 +7,7 @@ const { getDb } = require('../../db/db');
 // GET /api/documents/:id
 router.get('/:id', (req, res) => {
   const db = getDb();
-  const id = parseInt(req.params.id);
+  const id = parseInt(req.params.id, 10);
   if (isNaN(id)) return res.status(400).json({ error: 'Geçersiz id' });
 
   const doc = db.prepare(`

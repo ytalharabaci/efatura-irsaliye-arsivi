@@ -54,8 +54,21 @@ router.post('/generate', async (req, res) => {
 
   let rawText = text;
   if (!rawText && pdfPath) {
+    // Güvenlik: path traversal saldırısını önle.
+    // İstemciden gelen yolu resolve edip proje kökü içinde olup olmadığını ve
+    // .pdf uzantısını doğrula. Dışarı çıkan ya da .pdf olmayan yollar reddedilir.
+    const PROJECT_ROOT = path.resolve(path.join(__dirname, '..', '..', '..'));
+    const resolved = path.resolve(pdfPath);
+    if (
+      !resolved.startsWith(PROJECT_ROOT + path.sep) ||
+      !resolved.toLowerCase().endsWith('.pdf')
+    ) {
+      return res.status(400).json({
+        error: 'Geçersiz pdfPath: yalnızca proje dizini içindeki .pdf dosyaları kabul edilir.',
+      });
+    }
     try {
-      rawText = await pdfToText(pdfPath);
+      rawText = await pdfToText(resolved);
     } catch (err) {
       return res.status(400).json({ error: `PDF metni okunamadı: ${err.message}` });
     }
