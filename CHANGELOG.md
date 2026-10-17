@@ -5,7 +5,7 @@ Bu projedeki dikkate değer değişiklikler bu dosyada belgelenir.
 Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/) standardına,
 sürümleme [Semantic Versioning](https://semver.org/lang/tr/) kurallarına uyar.
 
-## [Unreleased]
+## [1.7.0] - 2026-10-17
 
 ### Eklendi
 
@@ -35,7 +35,8 @@ sürümleme [Semantic Versioning](https://semver.org/lang/tr/) kurallarına uyar
 
 ### Güvenlik
 
-- Kişisel veri içeren, LLM tarafından üretilmiş iki dinamik extractor dosyası depodan kaldırıldı.
+- Kişisel veri içeren, LLM tarafından üretilmiş iki dinamik extractor dosyası depodan ve tüm git geçmişinden kaldırıldı; etkilenen sürüm paketleri temiz geçmişten yeniden üretildi.
+- Kod yorumlarındaki örnek şirket adları (tüm geçmiş dahil) nötr ifadelerle değiştirildi.
 - LLM üretimi kod `node:vm` sandbox'ında çalışıyor (require/process/dosya erişimi yok, zaman aşımı); önceden tam Node yetkisiyle `require` ediliyordu.
 - `POST /api/extractors/generate` artık istemciden `apiKey`/`baseUrl` kabul etmiyor; `provider`/`model` beyaz listeden.
 
