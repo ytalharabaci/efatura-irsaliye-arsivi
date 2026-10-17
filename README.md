@@ -37,8 +37,15 @@ OCR (Tesseract vb.) hem gereksizdir hem de daha hataya açık bir yaklaşım olu
   - Taraf (satıcı/alıcı) bilgisi düzeltme — o tarafın geçtiği tüm belgelere yansır
   - **Yeniden Doğrula**: düzeltme sonrası kalem toplamlarının başlıkla tutup
     tutmadığını kontrol edip parse durumunu günceller
-- **Yapay Zeka (LLM Auto-Parser) & KVKK Maskeleme**: Tanınmayan/bilinmeyen e-fatura şablonlarıyla karşılaşıldığında, TCKN/VKN/Adres gibi hassas veriler KVKK maskelemesinden geçirilerek LLM (DeepSeek / GLM / OpenAI) vasıtasıyla o şablona özel bir JavaScript extractor kütüphanesi üretilir ve sunucuya yerel olarak kaydedilir.
-- **Akıllı Fallback (Smart Fallback) Mimarisi**: Şablon ayrıştırma jenerasyonunda ilk aşamada süper hızlı `deepseek-v4-flash` (~1-2s) çalıştırılır; karmaşık şablonlarda veya yetersizlikte otomatik olarak derin muhakeme yapan `deepseek-v4-pro` modeline geçilir.
+- **Deterministik doğrulama kaynakları**: PDF'e gömülü UBL-TR XML varsa alanlar
+  doğrudan resmi XML'den okunur; yoksa GİB karekodu (QR) çözülüp başlık
+  alanları (VKN, belge no, ETTN, tarih, toplamlar) karekodla doğrulanır/düzeltilir
+- **Güven skoru (0–100)**: her sonuç tip/şema, toplam tutarlılığı, kalem içi
+  aritmetik (miktar × fiyat, tutar × KDV), VKN/TCKN kontrol basamağı ve alan
+  doluluğuna göre puanlanır; birden çok extractor eşleşirse en yüksek skor seçilir
+- **Yapay Zeka (LLM Auto-Parser) & KVKK**: sonuç yetersizse LLM (DeepSeek / GLM /
+  OpenAI / yerel Ollama) o şablona özel bir extractor yazar. Ayrıntı: aşağıdaki
+  "Ayrıştırma hattı" bölümü
 - **Net Satır Maliyeti & İskonto Bazlı Kâr Hesaplaması**: Kâr marjı ve Satış Fiyatı hesaplamaları ham birim fiyattan değil, mali standartlara uygun olarak **Net Satır Maliyeti** ($[Miktar \times Birim Fiyat] - İskonto$) üzerinden hesaplanır.
 - **Web Arayüzü İbareleri & AI Rozetleri**: Yapay Zeka ile parse edilmiş belgeler panellerde mor `🤖 AI Parser` rozeti ve özel bilgilendirme kartlarıyla işaretlenir.
 - **Kar Oranı**: sağ üstten girilen yüzde, net birim maliyetinin yanında hesaplanmış **Satış Fiyatı (KDV Dahil)** sütunu olarak kalem listelerinde ve belge detayında gösterilir; tercih tarayıcıda saklanır, veritabanına yazılmaz
@@ -64,7 +71,9 @@ OCR (Tesseract vb.) hem gereksizdir hem de daha hataya açık bir yaklaşım olu
 
 - **Node.js 22.5+** + **Express** (backend API)
 - **node:sqlite** — Node.js built-in SQLite (sıfır native bağımlılık, C++ build gerekmez)
-- **poppler-utils** / `pdftotext -layout` (PDF metin çıkarma, OCR yok)
+- **poppler-utils** / `pdftotext -layout` (PDF metin çıkarma, OCR yok),
+  `pdftoppm` (karekod için sayfa görüntüsü), `pdfdetach` (gömülü XML)
+- **jsQR** + **pngjs** (saf JS karekod çözme)
 - Vanilla HTML + CSS + JS (framework'süz frontend)
 
 ## Kurulum
@@ -90,8 +99,10 @@ node --version
 sudo apt install poppler-utils
 #    Windows: https://github.com/oschwartz10612/poppler-windows/releases
 #    → C:\poppler\ konumuna çıkart, PATH'e ekle
+#    Not: Git for Windows ile gelen xpdf "pdftotext"i tablo düzenini bozabilir;
+#    poppler sürümünü kullanın (gerekirse PDFTOTEXT_PATH ile gösterin).
 
-# 3. Bağımlılıkları yükle (sadece express)
+# 3. Bağımlılıkları yükle (express, jsqr, pngjs)
 npm install
 ```
 
@@ -110,6 +121,52 @@ npm run ingest -- --dir ./belgeler --dry-run
 # Web arayüzünü başlat → http://localhost:8888
 npm start
 ```
+
+## Ayrıştırma hattı
+
+Her PDF için kaynaklar güven sırasıyla denenir:
+
+1. **Gömülü UBL-TR XML** (`pdfdetach`): varsa belge doğrudan XML'den okunur.
+2. **Metin + extractor'lar**: `pdftotext -layout` çıktısı belgelere bölünür;
+   statik extractor'lar ve daha önce LLM ile üretilmiş parser'lar çalıştırılır,
+   en yüksek güven skorlu sonuç seçilir.
+3. **GİB karekodu** (`pdftoppm` + QR çözme): başlık alanları karekodla
+   doğrulanır; çelişen alan karekoda göre düzeltilir ve parse notuna yazılır.
+4. **LLM (opsiyonel)**: sonuç BAŞARILI değilse veya skor eşiğin altındaysa:
+   - Metin **sentetik olarak maskelenir**: sütun düzeni ve etiketler korunur,
+     tüm değerler (unvan, adres, VKN/TCKN, tutar, açıklama…) aynı biçimde sahte
+     değerlerle değiştirilir; gönderim öncesi sızıntı denetimi yapılır.
+   - LLM'in yazdığı kod **izole bir sandbox'ta** (require/dosya/ağ erişimi yok,
+     zaman aşımlı) **gerçek metin üzerinde yerelde** test edilir; yetersizse
+     LLM'e yalnız kural adları ve maskeli satırlardan oluşan, gerçek değer
+     içermeyen geri bildirim gönderilir (en fazla `LLM_MAX_ATTEMPTS` tur).
+   - Yalnız eşiği ve mevcut sonucu geçen parser `data/extractors/` altına
+     şablon parmak iziyle kaydedilir; aynı şablondaki sonraki belgeler LLM'e
+     gitmeden bu parser'la okunur. Sürekli kötü sonuç veren parser otomatik
+     devre dışı kalır.
+   - `LLM_DIRECT_EXTRACT=true` ve **yerel** bir LLM (Ollama vb.) tanımlıysa,
+     kod üretimi de başarısız olduğunda tam metinden doğrudan JSON çıkarım
+     yapılır. Bulut sağlayıcıya maskesiz metin gönderimi kod düzeyinde engellidir.
+
+Doğruluk ölçümü: `npm run eval` fixture korpusunu üretim hattından geçirip
+alan bazlı doğruluk raporlar (`-- --verbose` hatalı alanları listeler).
+
+| Ortam değişkeni | Varsayılan | Açıklama |
+| --- | --- | --- |
+| `LLM_PROVIDER` | anahtardan çıkarım | `deepseek`, `glm`, `openai`, `custom` |
+| `DEEPSEEK_API_KEY` / `OPENAI_API_KEY` / `GLM_API_KEY` / `LLM_API_KEY` | — | Sağlayıcı anahtarı (`custom` + localhost için gerekmez) |
+| `LLM_BASE_URL`, `LLM_MODEL` | sağlayıcı ön ayarı | Özel uç nokta / model |
+| `LLM_MAX_ATTEMPTS` | `3` | Üret → doğrula → düzelt tur sayısı |
+| `LLM_MIN_SKOR` | `70` | Kabul edilecek en düşük güven skoru |
+| `LLM_TIMEOUT_MS` | `120000` | LLM isteği zaman aşımı |
+| `LLM_RETRY_COOLDOWN_HOURS` | `24` | Başarısız şablon için yeniden deneme bekleme süresi |
+| `LLM_DIRECT_EXTRACT` | kapalı | `true`: yerel LLM ile doğrudan çıkarım |
+| `LLM_ENDPOINT_IS_LOCAL` | kapalı | `true`: localhost dışındaki uç noktayı (ör. LAN'daki Ollama) yerel say |
+| `ENABLE_LLM_AUTO_PARSER` | açık | `false`: ingest sırasında LLM'i tamamen kapatır |
+| `EXTRACTORS_DIR` | `data/extractors` | Üretilen parser'ların dizini |
+| `QR_DISABLED` / `EMBEDDED_XML_DISABLED` | kapalı | İlgili doğrulama kaynağını kapatır |
+
+Elle parser üretmek için: `npm run generate-parser -- <fatura.pdf> [ad]`.
 
 ## Deployment (Windows servis + kurum ağı + OneDrive yedeği)
 

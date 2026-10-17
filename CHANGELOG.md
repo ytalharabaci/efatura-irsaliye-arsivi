@@ -5,6 +5,40 @@ Bu projedeki dikkate değer değişiklikler bu dosyada belgelenir.
 Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/) standardına,
 sürümleme [Semantic Versioning](https://semver.org/lang/tr/) kurallarına uyar.
 
+## [Unreleased]
+
+### Eklendi
+
+- **Gömülü UBL-TR XML okuma** (`embeddedXml.js`): PDF'e eklenmiş fatura/irsaliye XML'i varsa alanlar doğrudan resmi XML'den okunur (bağımlılıksız XML ayrıştırıcı).
+- **GİB karekodu (QR) doğrulaması** (`qrReader.js`, `jsqr` + `pngjs`): karekoddaki VKN, belge no, ETTN, tarih ve toplamlar başlıkla karşılaştırılır; boş alan doldurulur, çelişen alan karekoda göre düzeltilir ve parse notuna yazılır.
+- **Güven skoru (0–100)** ve genişletilmiş doğrulama (`validate.js`, `schema.js`): tip/şema denetimi (yer tutucu değer → HATALI), kalem içi aritmetik, vergiler dahil toplam, VKN/TCKN kontrol basamağı, zorunlu alanlar.
+- **`dispatchAll`**: tanıyan tüm extractor'lar çalıştırılır, en yüksek skor seçilir (önceden ilk eşleşen kazanıyordu).
+- **Doğrulamalı LLM döngüsü** (`generateValidatedParser`): üretilen kod gerçek metin üzerinde yerelde test edilir; yetersizse PII'siz geri bildirimle en fazla `LLM_MAX_ATTEMPTS` tur düzeltme istenir; yalnız eşiği geçen parser kaydedilir.
+- **Yerel LLM ile doğrudan JSON çıkarım** (`llmDirectExtract.js`, `LLM_DIRECT_EXTRACT=true`): yalnız localhost/yerel uç noktada çalışır.
+- **Şablon parmak izi ve parser istatistikleri**: aynı şablon için tekrar LLM çağrılmaz; sürekli başarısız parser otomatik devre dışı kalır; başarısız şablon için bekleme süresi (`LLM_RETRY_COOLDOWN_HOURS`).
+- **`npm run eval`**: fixture korpusunda alan bazlı doğruluk ölçümü ve CI regresyon testi.
+- Adres (satıcı/alıcı), alıcı telefonu, alt satıra düşmüş e-posta ve büyük harfli `YALNIZ:` notu çıkarımı; TL dışı para birimleri.
+- Web arayüzünde `📄 XML` / `▣ QR` kaynak rozetleri ve güven skoru.
+
+### Değiştirildi
+
+- **Sentetik maskeleme** (`anonymize.js`): `[MONEY_VAL]` gibi yer tutucular yerine değerler aynı biçimde sahte değerlerle değiştirilir, sütun düzeni birebir korunur; sözlük dışı etiketler tutarlı takma adla gönderilip üretilen kodda gerçeğine çevrilir; gönderim öncesi sızıntı denetimi.
+- **Kalem açıklaması ataması** (`gibStandardInvoice.js`): iki kalem arasındaki metin satırları artık iki kaleme birden eklenmiyor; bölünmüş hücre artıkları, ürün kodu ve satır uzaklığı ipuçlarıyla tek kaleme atanıyor. Taşan birim hücresi kurtarılıyor.
+- `parseTrDate` `GG.AA.YYYY` / `GG/AA/YYYY` biçimlerini ve takvim doğrulamasını destekliyor; `parseTrNumber` döviz soneklerini ve ondalık noktayı tanıyor.
+- Dinamik parser'lar `data/extractors/` altında tutuluyor (`EXTRACTORS_DIR`); eski konumdakiler otomatik taşınır.
+
+### Düzeltildi
+
+- **LLM fallback hiç devreye girmiyordu**: parser kaydedildikten sonra yeniden dispatch edildiğinde statik extractor yine ilk sırada eşleştiği için LLM sonucu kullanılmıyordu; her ŞÜPHELİ belge diske yeni bir `dynamic_<zaman>.js` yazıyordu.
+- **xpdf `pdftotext` ile Türkçe karakter kaybı**: `-enc UTF-8` eklendi; xpdf sürümü tespit edilirse uyarı verilir.
+- `DELETE /api/extractors/dynamic/:name` silinen parser'ı bellekten çıkarmıyordu.
+
+### Güvenlik
+
+- Kişisel veri içeren, LLM tarafından üretilmiş iki dinamik extractor dosyası depodan kaldırıldı.
+- LLM üretimi kod `node:vm` sandbox'ında çalışıyor (require/process/dosya erişimi yok, zaman aşımı); önceden tam Node yetkisiyle `require` ediliyordu.
+- `POST /api/extractors/generate` artık istemciden `apiKey`/`baseUrl` kabul etmiyor; `provider`/`model` beyaz listeden.
+
 ## [1.6.0] - 2026-08-13
 
 ### Düzeltilder (Kritik)

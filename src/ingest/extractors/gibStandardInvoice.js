@@ -14,6 +14,19 @@ const VERGI_DAIRESI_RE = /Vergi Dairesi\s*:[ \t]?(\S+(?:[ \t]\S+)*?)(?:[ \t]{2,}
 // "SAYIN" → "SA YIN". Alıcı bloğunu bulan tüm aramalar bu regex'i kullanır.
 const SAYIN_RE = /SA\s?YIN/;
 
+// Tutar soneki: TL dışındaki para birimleriyle düzenlenen faturalar da
+// aynı şablonu kullanır.
+const CUR = '(?:TL|TRY|USD|EUR|GBP)';
+
+// Satıcı/alıcı bloklarında bir alanın başladığını gösteren etiketler —
+// adres satırları bu etiketlerden birine kadar sürer.
+const BLOK_ETIKET_RE = /^(?:Tel(?:efon)?|Fax|Faks|Web\s*Sitesi|E-?Posta|Vergi\s*Dairesi|VKN|TCKN|Mersis\s*No|Ticaret\s*Sicil\s*No|HIZMETNO|Müşteri\s*No|Abone\s*No|ETTN)\b/i;
+
+// -layout çıktısında sağ sütun (fatura bilgileri kutusu) satır başından
+// bu kadar boşlukla içeride başlar; daha derin girintili satır sol sütuna
+// (satıcı/alıcı bloğuna) ait değildir.
+const SAG_SUTUN_GIRINTI = 40;
+
 /**
  * GİB standart e-Fatura / e-Arşiv Fatura PDF formatını (pdftotext -layout
  * çıktısı) parse eder. Birden fazla entegratör bu formatı küçük
@@ -79,7 +92,9 @@ function extract(text) {
 
   const ID_RE = /\b(?:VKN|TCKN)\s*:\s*(\d{10,11})/;
 
-  header.satici_unvan = extractSaticiUnvan(lines);
+  const satici = extractSaticiBlok(lines, sayinIdx);
+  header.satici_unvan = satici.unvan;
+  header.satici_adres = satici.adres;
   if (sayinIdx > 0) {
     header.satici_vkn_tckn = matchField(oncesi, ID_RE);
     header.satici_vergi_dairesi = matchField(oncesi, VERGI_DAIRESI_RE);
@@ -88,39 +103,41 @@ function extract(text) {
     header.satici_vkn_tckn = matchField(text, /TCKN\s*:\s*(\d+)/);
     header.satici_vergi_dairesi = matchField(text, VERGI_DAIRESI_RE);
   }
-  header.satici_telefon = matchField(text, /Tel\s*:\s*(\+?\d[\d\s]+)/);
-  header.satici_eposta = sayinIdx > 0
-    ? matchField(oncesi, /E-[Pp]osta\s*:\s*(\S+@\S+)/i)
-    : null;
+  header.satici_telefon = matchTelefon(sayinIdx > 0 ? oncesi : text);
+  header.satici_eposta = sayinIdx > 0 ? matchEposta(lines.slice(0, sayinIdx)) : null;
 
-  header.alici_unvan = extractAliciUnvan(lines);
+  const alici = extractAliciBlok(lines);
+  header.alici_unvan = alici.unvan;
+  header.alici_adres = alici.adres;
   header.alici_vkn_tckn = sonrasi ? matchField(sonrasi, ID_RE) : null;
   header.alici_vergi_dairesi = extractAliciVergiDairesi(lines);
-  header.alici_eposta = sonrasi ? matchField(sonrasi, /E-Posta\s*:\s*(\S+@\S+)/i) : null;
+  const aliciBolgesi = sayinIdx >= 0 ? lines.slice(sayinIdx, sayinIdx + 30) : [];
+  header.alici_eposta = sayinIdx >= 0 ? matchEposta(aliciBolgesi) : null;
+  header.alici_telefon = sayinIdx >= 0 ? matchTelefon(leftColumnText(aliciBolgesi)) : null;
 
   // --- Tutarlar ---
   // Bazı şablonlar "Mal / Hizmet Toplam Tutarı" (bölü işaretli) yazar,
   // bazıları tutarı TL'ye bitişik ("505,66TL") basar, bazıları etiket ile
   // tutar arasına iki nokta üst üste koyar ("Ödenecek Tutar   :   39.321,00 TL").
   header.mal_hizmet_toplam_tutari = parseTrNumber(
-    matchField(text, /Mal\s*\/?\s*Hizmet Toplam Tut[aA]r[ıi]\s*:?\s*([\d.,]+)\s*TL/)
+    matchField(text, new RegExp(`Mal\\s*\\/?\\s*Hizmet Toplam Tut[aA]r[ıi]\\s*:?\\s*([\\d.,]+)\\s*${CUR}`))
   );
   // Birden fazla KDV oranı varsa şablon her oran için ayrı "Hesaplanan KDV(%X)"
   // satırı basar — belge toplamı bunların toplamıdır.
   let kdvToplam = null;
-  for (const m of text.matchAll(/Hesaplanan KDV\s*\([^)]+\)\s*:?\s*([\d.,]+)\s*TL/g)) {
+  for (const m of text.matchAll(new RegExp(`Hesaplanan KDV\\s*\\([^)]+\\)\\s*:?\\s*([\\d.,]+)\\s*${CUR}`, 'g'))) {
     const v = parseTrNumber(m[1]);
     if (v != null) kdvToplam = (kdvToplam ?? 0) + v;
   }
   header.hesaplanan_kdv_toplam = kdvToplam != null ? Math.round(kdvToplam * 100) / 100 : null;
   header.vergiler_dahil_toplam_tutar = parseTrNumber(
-    matchField(text, /Vergiler Dahil Toplam Tutar\s*:?\s*([\d.,]+)\s*TL/)
+    matchField(text, new RegExp(`Vergiler Dahil Toplam Tutar\\s*:?\\s*([\\d.,]+)\\s*${CUR}`))
   );
   header.odenecek_tutar = parseTrNumber(
-    matchField(text, /[ÖO]denecek Tutar\s*:?\s*([\d.,]+)\s*TL/)
+    matchField(text, new RegExp(`[ÖO]denecek Tutar\\s*:?\\s*([\\d.,]+)\\s*${CUR}`))
   );
   header.toplam_iskonto = parseTrNumber(
-    matchField(text, /Toplam [İI]skonto\s*(?:\([^)]*\))?\s*:?\s*([\d.,]+)\s*TL/)
+    matchField(text, new RegExp(`Toplam [İI]skonto\\s*(?:\\([^)]*\\))?\\s*:?\\s*([\\d.,]+)\\s*${CUR}`))
   ) || 0;
   if (header.mal_hizmet_toplam_tutari != null) {
     header.kdv_matrahi = Math.round((header.mal_hizmet_toplam_tutari - header.toplam_iskonto) * 100) / 100;
@@ -130,8 +147,9 @@ function extract(text) {
 
   // --- Notlar (Yalnız + İrsaliye yerine geçer vb.) ---
   const notlarParts = [];
-  const yalnizM = text.match(/Yaln[ıi]z\s*:\s*(.+)/)
-    || text.match(/#\s*Yaln[ıi]z\s+([^#\n]+?)\s*#/); // "# Yalnız ... #" biçimi
+  // Büyük harfli "YALNIZ:" yazımı da kabul edilir (/i: "I" ↔ "i").
+  const yalnizM = text.match(/Yaln[ıi]z\s*:\s*(.+)/i)
+    || text.match(/#\s*Yaln[ıi]z\s+([^#\n]+?)\s*#/i); // "# Yalnız ... #" biçimi
   if (yalnizM) notlarParts.push(`Yalnız: ${yalnizM[1].trim()}`);
   if (/[İI]rsaliye yerine ge[çc]er/i.test(text)) notlarParts.push('İrsaliye yerine geçer.');
   header.notlar = notlarParts.length ? notlarParts.join(' ') : null;
@@ -154,30 +172,63 @@ function matchField(text, regex) {
 }
 
 /**
- * Satıcı unvanı: sayfanın en üstündeki metin bloğu, "SAYIN" kelimesinden önce.
- * pdftotext -layout çıktısında satıcı sol üst köşede, alıcı "SAYIN" altında yer alır.
- * İlk boş-olmayan satırı alıyoruz (genellikle ad-soyad veya şirket unvanı).
+ * Satırın sol sütun parçası: sağ sütuna ait (derin girintili) satırlar için
+ * boş, diğerlerinde 2+ boşluktan önceki kısım.
  */
-function extractSaticiUnvan(lines) {
-  for (const line of lines) {
-    const t = line.trim();
-    if (!t) continue;
-    if (/^E-Fatura$/i.test(t)) continue;
-    if (/^Page \d+ of \d+$/i.test(t)) continue; // bazı şablonlar sayfa no basar
-    return t;
-  }
-  return null;
+function leftColumn(line) {
+  const girinti = line.match(/^[ \t]*/)[0].length;
+  if (girinti >= SAG_SUTUN_GIRINTI) return '';
+  return line.trim().split(/[ \t]{2,}/)[0].trim();
+}
+
+function leftColumnText(lines) {
+  return lines.map(leftColumn).filter(Boolean).join('\n');
 }
 
 /**
- * Alıcı unvanı: "SAYIN" satırından sonraki ilk anlamlı metin satırı.
+ * Bir unvan satırından sonra gelen adres satırlarını, bir blok etiketine
+ * (Tel, E-Posta, VKN ...) veya bloğun sonuna kadar toplar.
  */
-function extractAliciUnvan(lines) {
+function collectAdres(lines, start, end) {
+  const parcalar = [];
+  for (let i = start; i < end; i++) {
+    const t = leftColumn(lines[i]);
+    if (!t) continue;
+    if (BLOK_ETIKET_RE.test(t) || SAYIN_RE.test(t)) break;
+    parcalar.push(t);
+  }
+  const adres = parcalar.join(' ').replace(/\s+/g, ' ').trim();
+  return adres || null;
+}
+
+/**
+ * Satıcı bloğu: sayfanın en üstündeki metin bloğu, "SAYIN" satırından önce.
+ * İlk anlamlı satır unvandır (ad-soyad veya şirket unvanı), etiketli
+ * satırlara kadar olan devamı adrestir.
+ */
+function extractSaticiBlok(lines, sayinIdx) {
+  const son = sayinIdx > 0 ? sayinIdx : Math.min(lines.length, 15);
+  for (let i = 0; i < lines.length; i++) {
+    const t = lines[i].trim();
+    if (!t) continue;
+    if (/^E-Fatura$/i.test(t)) continue;
+    if (/^Page \d+ of \d+$/i.test(t)) continue; // bazı şablonlar sayfa no basar
+    return { unvan: t, adres: i + 1 < son ? collectAdres(lines, i + 1, son) : null };
+  }
+  return { unvan: null, adres: null };
+}
+
+/**
+ * Alıcı bloğu: "SAYIN" satırından sonraki ilk anlamlı metin satırı unvan,
+ * ardından etiketli satırlara kadar gelenler adrestir.
+ */
+function extractAliciBlok(lines) {
   let sayinIdx = lines.findIndex((l) => /^\s*SA\s?YIN\s*$/.test(l));
   if (sayinIdx === -1) sayinIdx = lines.findIndex((l) => SAYIN_RE.test(l));
-  if (sayinIdx === -1) return null;
+  if (sayinIdx === -1) return { unvan: null, adres: null };
 
-  for (let i = sayinIdx + 1; i < lines.length; i++) {
+  const blokSonu = Math.min(lines.length, sayinIdx + 30);
+  for (let i = sayinIdx + 1; i < blokSonu; i++) {
     // Unvan satırının sağına başka bir sütun ("Fatura Tipi: SATIS" gibi)
     // düşmüş olabilir — yalnızca 2+ boşluktan önceki sol sütunu al.
     const t = lines[i].trim().split(/[ \t]{2,}/)[0].trim();
@@ -185,18 +236,46 @@ function extractAliciUnvan(lines) {
     // Alıcı unvanı çok satırlı olabilir (ör. "Örnek Sistem... A.Ş.")
     // İlk anlamlı satırı al, sonraki kısa devam satırlarını da ekle
     let unvan = t;
+    let adresBasi = i + 1;
     // Sonraki satır, sağdaki başka bir sütunla ("Özelleştirme No: ..." gibi)
     // aynı fiziksel satırda gelebilir — sadece 2+ boşluktan önceki sol sütun
     // parçasına (ör. "A.Ş.") bakılmalı, satırın tamamına değil.
     if (i + 1 < lines.length) {
       const nextLeftCol = lines[i + 1].split(/[ \t]{2,}/)[0].trim();
-      if (nextLeftCol && nextLeftCol !== unvan && nextLeftCol.length < 20
+      if (nextLeftCol === unvan) {
+        // Bazı şablonlar alıcı adını iki kez basar — tekrarı adres sayma.
+        adresBasi = i + 2;
+      } else if (nextLeftCol && nextLeftCol.length < 20
           && /^[A-ZÇĞİÖŞÜa-zçğışöşü.\s]+$/.test(nextLeftCol) && !/:\s/.test(nextLeftCol)) {
-        // Bazı şablonlar alıcı adını iki kez basar — birebir aynıysa ekleme.
         unvan += ' ' + nextLeftCol;
+        adresBasi = i + 2;
       }
     }
-    return unvan;
+    return { unvan, adres: collectAdres(lines, adresBasi, blokSonu) };
+  }
+  return { unvan: null, adres: null };
+}
+
+/** "Tel: +90 555 ..." / "Tel : (555) 111 22 33" — aynı satırdaki "Fax:" dahil edilmez. */
+function matchTelefon(text) {
+  const m = text.match(/\bTel(?:efon)?\s*:[ \t]*(\+?\(?\d[\d \t()-]{5,}\d)/i);
+  return m ? m[1].replace(/[ \t]+/g, ' ').trim() : null;
+}
+
+/**
+ * E-posta etiketinin değeri; etiket boş kalıp adres alt satırlardan birine
+ * (sol sütunda) düşmüşse oradan alınır.
+ */
+function matchEposta(lines) {
+  const idx = lines.findIndex((l) => /E-?Posta\s*:/i.test(l));
+  if (idx === -1) return null;
+  const ayni = lines[idx].match(/E-?Posta\s*:[ \t]*(\S+@\S+)/i);
+  if (ayni) return ayni[1];
+  for (let j = idx + 1; j < Math.min(idx + 4, lines.length); j++) {
+    const sol = leftColumn(lines[j]);
+    if (!sol) continue;
+    if (/^\S+@\S+\.\S+$/.test(sol)) return sol;
+    if (BLOK_ETIKET_RE.test(sol)) break;
   }
   return null;
 }
@@ -224,18 +303,12 @@ function extractAliciVergiDairesi(lines) {
  *
  * Sıra no ("1") bu satırın en başında, itemLineRe'nin eşleştiği kısımdan önce
  * duruyor — ayrı bir satır olarak gelmiyor. Açıklama ("Siber Güvenlik
- * Danışmanlığı Hizmet Bedeli") ise kalem satırının hem ÖNCESİNE hem SONRASINA
- * bölünmüş halde yayılabiliyor. Bu yüzden açıklama, kalem satırından önceki
- * düz metin satırları ile hemen sonraki düz metin satırları birleştirilerek
- * oluşturuluyor.
+ * Danışmanlığı Hizmet Bedeli") ise hücre içinde dikey ortalandığından kalem
+ * satırının hem ÖNCESİNE hem SONRASINA bölünmüş halde yayılabiliyor.
  *
- * Not: Aynı anda birden fazla kalem varsa ve aralarında bağımsız bir sıra no
- * satırı yoksa (her kalemin sıra no'su da kendi veri satırının başında ise),
- * bir kalemin son açıklama satırı ile bir sonrakinin ilk açıklama satırını
- * ayırt etmenin güvenilir bir yolu yok — bu durumda açıklama her iki kaleme de
- * (fazladan) eklenebilir. Şimdiye kadar gözlemlenen tüm gerçek örnekler tek
- * kalemli olduğu için bu kenar durumu netleşmedi; çok kalemli gerçek bir örnek
- * geldiğinde tekrar gözden geçirilmeli.
+ * Bu yüzden iki geçiş yapılır: önce satırlar olaylara (kalem satırı, düz
+ * metin, hücre artığı, sıra no, toplam) dönüştürülür; sonra iki kalem
+ * arasındaki her düz metin satırı TEK bir kaleme atanır (bkz. assignGap).
  */
 function extractItems(lines) {
   const items = [];
@@ -289,9 +362,13 @@ function extractItems(lines) {
   // Başlık/satıcı/alıcı üstbilgi alanları kalem açıklamasına karışmasın
   const headerNoiseRe = /\b(?:VKN|TCKN|Vergi Dairesi|Senaryo|Fatura Tipi|Fatura No|ETTN|SA\s?YIN|[ÖO]zelle[şs]tirme No|Fatura Tarihi|Fatura Saati|[İI]rsaliye No|[İI]rsaliye Tarihi|E-Posta|Web Sitesi)\b/i;
 
-  let leadingLines = [];   // sıradaki kalemden önce biriken açıklama satırları
+  // Olay dizisi: { tip: 'row'|'text'|'marker'|'break', satir, ... }
+  //  - row: kalem veri satırı (item + satır içi kod/açıklama)
+  //  - text: açıklama adayı düz metin (cue: 'prev' | 'next' | null)
+  //  - marker: yalnız hücre artığından oluşan satır (yalnız cue taşır)
+  //  - break: tablo başlığı / toplamlar / bağımsız sıra no — gruplama sınırı
+  const events = [];
   let pendingSiraNo = null; // bağımsız bir sıra no satırı görüldüyse
-  let lastItem = null;      // az önce eklenen kalem — devam satırlarını buna ekle
   let inTable = false;      // kalem tablosu başlığı görülmeden hiçbir satır açıklama sayılmaz
   const consumed = new Set(); // ileri bakışla tüketilen taşma satırları (indeks)
 
@@ -302,6 +379,7 @@ function extractItems(lines) {
 
     if (headerLineRe.test(stripped)) {
       inTable = true;
+      events.push({ tip: 'break', satir: i });
       continue;
     }
 
@@ -311,9 +389,8 @@ function extractItems(lines) {
 
     if (totalsLineRe.test(stripped)) {
       // Kalem tablosu bitti, açık kalan her şeyi kapat
-      leadingLines = [];
       pendingSiraNo = null;
-      lastItem = null;
+      events.push({ tip: 'break', satir: i });
       continue;
     }
 
@@ -383,9 +460,7 @@ function extractItems(lines) {
         }
       }
 
-      const aciklamaParts = leadingLines.filter((l) => !headerNoiseRe.test(l));
-      if (inlineDesc && !headerNoiseRe.test(inlineDesc)) aciklamaParts.push(inlineDesc);
-      const aciklama = aciklamaParts.join(' ').replace(/\s+/g, ' ').trim();
+      if (inlineDesc && headerNoiseRe.test(inlineDesc)) inlineDesc = null;
 
       const miktarNum = parseTrNumber(miktar);
       const birimFiyatNum = parseTrNumber(birim_fiyat);
@@ -423,7 +498,7 @@ function extractItems(lines) {
 
       const item = {
         sira_no: siraNo != null ? parseInt(siraNo, 10) : items.length + 1,
-        aciklama: aciklama || null,
+        aciklama: null,
         miktar: miktarNum,
         birim: birim ? birim.trim() : null,
         birim_fiyat: birimFiyatNum,
@@ -435,42 +510,141 @@ function extractItems(lines) {
         mal_hizmet_tutari: tutarNum,
       };
       items.push(item);
+      events.push({ tip: 'row', satir: i, item, ...splitKod(inlineDesc) });
 
-      leadingLines = [];
       pendingSiraNo = null;
-      lastItem = item;
       continue;
     }
 
     // Bağımsız bir sıra no satırı mı? Yeni kalem başlıyor demektir —
-    // önceki kalemin devam açıklaması artık kapanır.
+    // sonraki metin satırları artık bir sonraki kaleme aittir.
     const siraMatch = stripped.match(siraNoRe);
     if (siraMatch && parseInt(siraMatch[1], 10) <= 999) {
-      lastItem = null;
       pendingSiraNo = siraMatch[1];
-      leadingLines = [];
+      events.push({ tip: 'break', satir: i });
       continue;
     }
 
-    // Sütun taşması artığı veya üstbilgi metadata satırı — açıklama sayma.
-    if (kalintiRe.test(stripped) || headerNoiseRe.test(stripped)) {
-      continue;
-    }
+    // Üstbilgi metadata satırı — açıklama sayma.
+    if (headerNoiseRe.test(stripped)) continue;
 
-    // Düz metin satırı: hem bir önceki kalemin devamı olabilir hem de
-    // sıradaki kalemin açıklamasının başlangıcı — ikisine de ekleniyor.
     // Satırın sağına dikey hizalama bozulmasıyla düşen yalnız-sayı/TL
-    // sütunları (komşu kalemin KDV tutarı vb.) açıklamadan ayıklanır.
-    const temiz = stripNumericColumns(stripped);
-    if (temiz.length > 0 && temiz.length < 200) {
-      if (lastItem) {
-        lastItem.aciklama = lastItem.aciklama ? `${lastItem.aciklama} ${temiz}` : temiz;
-      }
-      leadingLines.push(temiz);
+    // sütunları (komşu kalemin KDV tutarı vb.) açıklamadan ayıklanır;
+    // hangi kaleme ait oldukları ise satırın sahibini gösterir (cue).
+    const { metin, cue, birim } = splitNumericColumns(stripped);
+    if (!metin || kalintiRe.test(stripped)) {
+      if (cue || birim) events.push({ tip: 'marker', satir: i, cue, birim });
+      continue;
+    }
+    if (metin.length < 200) {
+      events.push({
+        tip: 'text', satir: i, metin, birim,
+        cue: cue || (KOD_RE.test(metin.split(/\s+/)[0]) ? 'next' : null),
+      });
     }
   }
 
+  assignDescriptions(events);
   return items;
+}
+
+// Ürün/stok kodu görünümlü belirteç: en az 5 karakter, büyük harf/rakam/tire,
+// en az bir rakam ("MLX1184", "507621", "2001201B"). Bir metin satırı böyle
+// başlıyorsa yeni bir kalemin kod hücresidir.
+const KOD_RE = /^(?=[A-Z0-9-]*\d)[A-Z0-9][A-Z0-9-]{4,}$/;
+
+/** Satır içi açıklamayı baştaki ürün kodu ve kalan metin olarak ayırır. */
+function splitKod(inlineDesc) {
+  if (!inlineDesc) return { kod: null, inline: null };
+  const parts = inlineDesc.split(/\s+/);
+  if (KOD_RE.test(parts[0])) {
+    return { kod: parts[0], inline: parts.slice(1).join(' ') || null };
+  }
+  return { kod: null, inline: inlineDesc };
+}
+
+/**
+ * Olay dizisindeki düz metin satırlarını kalemlere dağıtır ve her kalemin
+ * açıklamasını "kod + önceki satırlar + satır içi metin + sonraki satırlar"
+ * olarak kurar.
+ */
+function assignDescriptions(events) {
+  const ekler = new Map(); // row event → { once: [], sonra: [] }
+  const ek = (row) => {
+    if (!ekler.has(row)) ekler.set(row, { once: [], sonra: [] });
+    return ekler.get(row);
+  };
+
+  let prevRow = null;
+  let gap = [];
+  const flush = (nextRow) => {
+    assignGap(gap, prevRow, nextRow, ek);
+    gap = [];
+  };
+
+  for (const ev of events) {
+    if (ev.tip === 'row') {
+      flush(ev);
+      prevRow = ev;
+    } else if (ev.tip === 'text' || ev.tip === 'marker') {
+      gap.push(ev);
+    } else if (ev.tip === 'break') {
+      // Sıra no satırına kadar olanlar öncekine; sonrası sıradaki kaleme.
+      // Başlık/toplam satırı tabloyu kapatır.
+      flush(null);
+      prevRow = null;
+    }
+  }
+  flush(null);
+
+  for (const ev of events) {
+    if (ev.tip !== 'row') continue;
+    const { once, sonra } = ekler.get(ev) || { once: [], sonra: [] };
+    const parcalar = [];
+    if (ev.kod) parcalar.push(ev.kod);
+    parcalar.push(...once);
+    if (ev.inline) parcalar.push(ev.inline);
+    parcalar.push(...sonra);
+    const aciklama = parcalar.join(' ').replace(/\s+/g, ' ').trim();
+    ev.item.aciklama = aciklama || null;
+  }
+}
+
+/**
+ * İki kalem satırı (prevRow, nextRow; tablo kenarında biri null olabilir)
+ * arasındaki metin satırlarını bir bölme noktasından ikiye ayırır:
+ * öncesi prevRow'un devamı, sonrası nextRow'un başlangıcıdır.
+ *
+ * Bölme noktası ipuçları (öncelik sırasıyla):
+ *  1. "next" ipucu (TL'siz bölünmüş tutar hücresi ya da satır başında ürün
+ *     kodu) taşıyan ilk satır ve sonrası nextRow'a aittir.
+ *  2. Yalnız "prev" ipucu (tek başına kalmış "TL" hücre artığı) varsa,
+ *     tüm aradaki satırlar prevRow'a aittir.
+ *  3. İpucu yoksa satır, fiziksel olarak daha yakın kalem satırına gider;
+ *     eşitlikte sıradaki kaleme (açıklamalar hücrede dikey ortalanır,
+ *     üst satır genellikle alttaki kalem satırına aittir).
+ */
+function assignGap(gap, prevRow, nextRow, ek) {
+  if (!prevRow && !nextRow) return;
+  const firstNext = gap.findIndex((e) => e.cue === 'next');
+  const hasPrev = gap.some((e) => e.cue === 'prev');
+
+  for (let idx = 0; idx < gap.length; idx++) {
+    const e = gap[idx];
+    let sonrakine;
+    if (!prevRow) sonrakine = true;
+    else if (!nextRow) sonrakine = false;
+    else if (firstNext !== -1) sonrakine = idx >= firstNext;
+    else if (hasPrev) sonrakine = false;
+    else sonrakine = (e.satir - prevRow.satir) >= (nextRow.satir - e.satir);
+
+    const row = sonrakine ? nextRow : prevRow;
+    // Alt satıra taşmış birim hücresi ("80.000 ... \n UÇLU 3,5*25  Adet")
+    if (e.birim && row.item.birim == null) row.item.birim = e.birim;
+    if (e.tip !== 'text') continue;
+    if (sonrakine) ek(row).once.push(e.metin);
+    else ek(row).sonra.push(e.metin);
+  }
 }
 
 /**
@@ -491,19 +665,36 @@ function parseIskontoTail(kuyruk) {
 
 /**
  * Bir açıklama satırından, 2+ boşlukla ayrılmış yalnız-sayısal sütun
- * parçalarını ("688,50", "TL", "%20,00") atar — bunlar komşu kalem
- * satırlarından dikey kaymayla düşen hücre artıklarıdır.
+ * parçalarını ("688,50", "TL", "%20,00") ayırır — bunlar dikey ortalanan
+ * tutar hücrelerinin iki satıra bölünmüş yarılarıdır. Hücrenin üst yarısı
+ * (TL'siz sayı) alttaki kalem satırına, alt yarısı (tek başına "TL")
+ * üstteki kalem satırına aittir; aynı fiziksel satırdaki açıklama metni de
+ * çoğunlukla aynı kaleme aittir → `cue`.
+ * Tek başına bir birim adı ("Adet") da taşmış birim hücresidir → `birim`.
+ * @returns {{ metin: string, cue: 'prev'|'next'|null, birim: string|null }}
  */
-function stripNumericColumns(line) {
-  return line
-    .split(/[ \t]{2,}/)
-    .filter((seg) => {
-      const s = seg.trim();
-      return s && !/^(?:[\d.,]+\s*(?:TL)?|TL|%\s*[\d.,]+)$/.test(s);
-    })
-    .join(' ')
-    .trim();
+function splitNumericColumns(line) {
+  const metinParcalari = [];
+  let prev = false;
+  let next = false;
+  let birim = null;
+  for (const seg of line.split(/[ \t]{2,}/)) {
+    const s = seg.trim();
+    if (!s) continue;
+    if (TASAN_BIRIM_RE.test(s)) birim = s;
+    else if (new RegExp(`^${CUR}$`).test(s)) prev = true;
+    else if (/^[\d.,]+$/.test(s) && /\d/.test(s)) next = true;
+    else if (new RegExp(`^(?:[\\d.,]+\\s*${CUR}|%\\s*[\\d.,]+)$`).test(s)) { /* tam hücre */ }
+    else metinParcalari.push(s);
+  }
+  return {
+    metin: metinParcalari.join(' ').trim(),
+    cue: prev === next ? null : (next ? 'next' : 'prev'),
+    birim,
+  };
 }
+
+const TASAN_BIRIM_RE = /^(?:Adet|Kg|KG|Litre|Lt|m²|m2|Metre|Ton|Paket|Kutu|Saat|Tak[ıi]m)$/;
 
 function computeConfidence(header, items) {
   let score = 0;

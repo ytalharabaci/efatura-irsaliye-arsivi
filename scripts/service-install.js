@@ -70,6 +70,13 @@ if (process.env.ENABLE_LLM_AUTO_PARSER) {
 if (process.env.PDFTOTEXT_PATH) {
   env.push({ name: 'PDFTOTEXT_PATH', value: process.env.PDFTOTEXT_PATH });
 }
+// Ayrıştırma / LLM ayarları (bkz. README "Ayrıştırma hattı")
+for (const name of [
+  'EXTRACTORS_DIR', 'LLM_MAX_ATTEMPTS', 'LLM_MIN_SKOR', 'LLM_TIMEOUT_MS', 'LLM_RETRY_COOLDOWN_HOURS',
+  'LLM_DIRECT_EXTRACT', 'LLM_ENDPOINT_IS_LOCAL', 'QR_DISABLED', 'EMBEDDED_XML_DISABLED',
+]) {
+  if (process.env[name]) env.push({ name, value: process.env[name] });
+}
 
 const svc = new Service({
   name: 'EFaturaArsivServisi',

@@ -75,6 +75,7 @@ tr:hover td.satis-fiyati { background: #f5ebc9; }
 .badge-HATALI     { background: #fee2e2; color: #991b1b; }
 .badge-TANINMAYAN { background: #e5e7eb; color: #374151; }
 .badge-ai         { background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%); color: #ffffff; margin-left: 4px; box-shadow: 0 1px 3px rgba(168,85,247,0.3); }
+.badge-src        { background: #e0f2fe; color: #075985; margin-left: 4px; }
 
 /* Yapay Zeka Parser Bilgilendirme Kutuları */
 .ai-info-box {

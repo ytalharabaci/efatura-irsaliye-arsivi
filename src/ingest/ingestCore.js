@@ -1,92 +1,183 @@
 'use strict';
 
-// Tek bir PDF'i işleyen ortak ingest mantığı: pdftotext → belge ayrıştırma
-// (bir dosyada art arda birden çok fatura olabilir) → extractor → doğrulama →
-// DB'ye upsert. Hem CLI (ingestRunner) hem web yüklemesi (POST /api/upload)
+// Tek bir PDF'i işleyen ortak ingest mantığı. Kaynaklar güven sırasıyla:
+//   1. PDF'e gömülü UBL-TR XML (varsa doğrudan resmi belge)
+//   2. pdftotext → belge ayrıştırma (bir dosyada birden çok fatura olabilir)
+//      → tüm extractor'lar (statik + LLM üretimi) → en iyi skor
+//      → GİB karekodu (QR) ile başlık doğrulama/düzeltme
+//   3. Sonuç yetersizse LLM: maskeli metinden doğrulamalı parser üretimi;
+//      o da olmazsa (yalnız yerel LLM'de) doğrudan JSON çıkarım
+// → DB'ye upsert. Hem CLI (ingestRunner) hem web yüklemesi (POST /api/upload)
 // bu modülü kullanır.
 
+const fs = require('node:fs');
+const path = require('node:path');
 const { pdfToText, pdfToTextRaw } = require('./pdfToText');
 const { splitIntoDocuments } = require('./splitDocuments');
-const { anonymizePdfText } = require('./anonymize');
-const { generateParserFromLayout } = require('./llmParserGenerator');
-const { dispatch, registerDynamicExtractor } = require('./extractors/index');
-const { repairDocumentText } = require('./repairKerning');
+const { generateValidatedParser, resolveLlmConfig, hasUsableConfig } = require('./llmParserGenerator');
+const { directExtract, directExtractEnabled } = require('./llmDirectExtract');
+const {
+  dispatchAll,
+  registerDynamicExtractor,
+  recordDynamicOutcome,
+  templateFingerprint,
+  findByFingerprint,
+  dynamicDir,
+} = require('./extractors/index');
 const { validateDocument } = require('./validate');
+const { readPdfQrs, findQrForSegment, mergeQrIntoHeader } = require('./qrReader');
+const { readEmbeddedUbl } = require('./embeddedXml');
 
 // Toplu sonuç için durum önceliği: en kötü durum dosyanın durumu olur.
 const DURUM_SIRASI = { BASARILI: 0, SUPHELI: 1, TANINMAYAN: 2, HATALI: 3 };
 
+const KAYNAK_ETIKETI = {
+  xml: '📄 Gömülü UBL XML',
+  dynamic: '🤖 Yapay Zeka Özel Parser',
+  'llm-direct': '🤖 Yapay Zeka doğrudan çıkarım (yerel LLM)',
+};
+
+function envInt(name, def) {
+  const n = parseInt(process.env[name], 10);
+  return Number.isFinite(n) && n > 0 ? n : def;
+}
+
+function llmAllowed(options) {
+  if (options.autoGenerateParser === false || process.env.ENABLE_LLM_AUTO_PARSER === 'false') return false;
+  return hasUsableConfig(resolveLlmConfig(options));
+}
+
+// Aynı şablon için LLM'i her belgede yeniden çağırmamak: başarısız üretim
+// parmak izi bazında kaydedilir, bekleme süresi dolana kadar tekrar denenmez.
+function basarisizKayitYolu() {
+  return path.join(dynamicDir(), '_basarisiz.json');
+}
+
+function readBasarisiz() {
+  try { return JSON.parse(fs.readFileSync(basarisizKayitYolu(), 'utf8')); } catch { return {}; }
+}
+
+function recentlyFailed(fp) {
+  const kayit = readBasarisiz()[fp];
+  if (!kayit) return false;
+  const beklemeMs = envInt('LLM_RETRY_COOLDOWN_HOURS', 24) * 3600 * 1000;
+  return Date.now() - Date.parse(kayit.sonDeneme) < beklemeMs;
+}
+
+function recordFailure(fp, hata) {
+  try {
+    const kayitlar = readBasarisiz();
+    kayitlar[fp] = { sayi: (kayitlar[fp]?.sayi || 0) + 1, sonDeneme: new Date().toISOString(), hata: String(hata).slice(0, 300) };
+    fs.mkdirSync(dynamicDir(), { recursive: true });
+    fs.writeFileSync(basarisizKayitYolu(), JSON.stringify(kayitlar, null, 2), 'utf8');
+  } catch { /* opsiyonel */ }
+}
+
+/** Adayın başlığını karekodla doğrular/düzeltir ve yeniden doğrular. */
+function applyQr(aday, qr) {
+  if (!aday || !qr) return aday;
+  const { header, notlar } = mergeQrIntoHeader(aday.result.header, qr.header);
+  const result = { ...aday.result, header };
+  return {
+    ...aday,
+    result,
+    validation: validateDocument(header, result.items),
+    qrNotlari: notlar,
+    qrDogrulandi: true,
+  };
+}
+
+function better(a, b) {
+  if (!b) return true;
+  return a.validation.skor > b.validation.skor;
+}
+
 /**
- * Tek bir belge segmentini (bir faturanın metni) işler.
- * @returns {Promise<{durum: string, mesaj: string|null, document_id?: number, belge_no?: string|null, ettn?: string|null, kalem_sayisi?: number, extractor?: string}>}
+ * Bir belge segmentinden en iyi çıkarım sonucunu üretir (DB'ye yazmaz).
+ * Eval betiği ve web "parser üret" akışı da bunu kullanır.
+ *
+ * @param {string} text - segment metni (pdftotext -layout)
+ * @param {object} [ctx]
+ * @param {string|null} [ctx.rawText] - kerning onarımı için -raw metin
+ * @param {object|null} [ctx.qr] - bu segmentin karekodu (readPdfQrs çıktısı)
+ * @param {object} [ctx.options] - LLM seçenekleri; autoGenerateParser:false LLM'i kapatır
+ * @returns {Promise<null | { name, type, result, validation, qrNotlari?, qrDogrulandi?, llmUretildi? }>}
  */
-async function ingestSegment(db, segmentText, kaynak_dosya, rawText, options = {}) {
-  let dispatched = dispatch(segmentText);
+async function extractSegment(text, { rawText = null, qr = null, options = {}, log = console.log } = {}) {
+  const adaylar = dispatchAll(text, { rawText }).map((a) => applyQr(a, qr));
+  adaylar.sort((a, b) => b.validation.skor - a.validation.skor);
+  let best = adaylar[0] || null;
 
-  const hasLlmKey = Boolean(options.apiKey || process.env.LLM_API_KEY || process.env.OPENAI_API_KEY || process.env.DEEPSEEK_API_KEY);
-  const allowAutoLlm = options.autoGenerateParser !== false && (hasLlmKey || process.env.ENABLE_LLM_AUTO_PARSER === 'true');
+  const esik = envInt('LLM_MIN_SKOR', 70);
+  const yetersiz = () => !best || best.validation.durum !== 'BASARILI' || best.validation.skor < esik;
 
-  let validation = null;
-  if (dispatched) {
-    repairDocumentText(dispatched.result, rawText);
-    validation = validateDocument(dispatched.result.header, dispatched.result.items);
-  }
+  if (yetersiz() && llmAllowed(options)) {
+    const fp = templateFingerprint(text);
+    const mevcut = findByFingerprint(fp);
+    const sebep = !best ? 'Tanınmayan şablon' : `${best.name} → ${best.validation.durum} (skor ${best.validation.skor})`;
 
-  // Extractor hiç tanımadıysa VEYA statik extractor ŞÜPHELİ/HATALI çıkardıysa LLM Auto-Parser'a başvur:
-  const isInitialDynamic = Boolean(dispatched && dispatched.name && dispatched.name.startsWith('dynamic_'));
-  const needsLlmFallback = !dispatched || (validation && (validation.durum === 'SUPHELI' || validation.durum === 'HATALI') && !isInitialDynamic);
-
-  if (needsLlmFallback && allowAutoLlm && hasLlmKey) {
-    try {
-      const sebep = !dispatched ? 'Tanınmayan şablon' : `Statik parser (${dispatched.name}) ${validation.durum} sonuç üretti`;
-      console.log(`[Ingest] ${sebep}, KVKK maskelemesi yapılarak LLM ile parser üretiliyor...`);
-      const anonymized = anonymizePdfText(segmentText);
-      const genResult = await generateParserFromLayout(anonymized, options);
-
-      if (genResult.success && genResult.code) {
-        const extractorName = `dynamic_${Date.now()}`;
-        registerDynamicExtractor(extractorName, genResult.code);
-        console.log(`[Ingest] Yeni extractor başarıyla diske kaydedildi: ${extractorName}`);
-        const llmDispatched = dispatch(segmentText);
-        if (llmDispatched) {
-          repairDocumentText(llmDispatched.result, rawText);
-          const llmValidation = validateDocument(llmDispatched.result.header, llmDispatched.result.items);
-          // LLM sonucu BAŞARILI ise veya öncekine kıyasla daha iyi durumdaysa LLM sonucunu üstlen:
-          if (!dispatched || llmValidation.durum === 'BASARILI' || DURUM_SIRASI[llmValidation.durum] < DURUM_SIRASI[validation.durum]) {
-            dispatched = llmDispatched;
-            validation = llmValidation;
-          }
+    if (!options.force && recentlyFailed(fp)) {
+      log(`[Ingest] ${sebep}; bu şablon için LLM üretimi yakın zamanda başarısız oldu, atlanıyor.`);
+    } else {
+      log(`[Ingest] ${sebep}; maskeli metinden LLM ile parser üretiliyor...`);
+      try {
+        const gen = await generateValidatedParser({
+          text, rawText, baselineSkor: best?.validation.skor ?? 0, options, log,
+        });
+        if (gen.success) {
+          const name = mevcut ? mevcut.name : `dynamic_${fp}`;
+          registerDynamicExtractor(name, gen.code, {
+            fingerprint: fp, provider: gen.provider, model: gen.model,
+            skor: gen.validation.skor, denemeSayisi: gen.attempts,
+          });
+          log(`[Ingest] Parser kaydedildi: ${name} (skor ${gen.validation.skor}, ${gen.attempts} deneme)`);
+          const aday = applyQr({ name, type: 'dynamic', result: gen.result, validation: gen.validation, llmUretildi: true }, qr);
+          if (better(aday, best)) best = aday;
+        } else {
+          log(`[Ingest] LLM parser üretimi başarısız: ${gen.error}`);
+          recordFailure(fp, gen.error);
         }
-      } else {
-        console.error('[Ingest] LLM Parser üretimi başarısız oldu:', genResult.error);
+      } catch (err) {
+        log(`[Ingest] LLM parser üretimi sırasında hata: ${err.message}`);
+        recordFailure(fp, err.message);
       }
-    } catch (err) {
-      console.error('[Ingest] LLM Parser üretimi sırasında istisna oluştu:', err.message);
+    }
+
+    if (yetersiz() && directExtractEnabled(options)) {
+      const d = await directExtract(text, { rawText, options });
+      if (d.success) {
+        const aday = applyQr({ name: 'llm_direct', type: 'llm-direct', result: d.result, validation: d.validation }, qr);
+        if (better(aday, best)) best = aday;
+      } else {
+        log(`[Ingest] Doğrudan çıkarım yapılamadı: ${d.error}`);
+      }
     }
   }
 
-  if (!dispatched) {
-    return { durum: 'TANINMAYAN', mesaj: 'Hiçbir extractor bu formatı tanımadı — yeni şablon/extractor gerekebilir' };
-  }
+  return best;
+}
 
-  if (!validation) {
-    repairDocumentText(dispatched.result, rawText);
-    validation = validateDocument(dispatched.result.header, dispatched.result.items);
-  }
+/** Seçilen adayı parse notlarıyla birlikte DB'ye yazar ve belge sonucunu döndürür. */
+function finalizeSegment(db, aday, kaynak_dosya) {
+  const { validation } = aday;
+  const header = { ...aday.result.header };
+  const items = aday.result.items;
 
-  const { header, items } = dispatched.result;
-  const isDynamic = Boolean(dispatched.name && dispatched.name.startsWith('dynamic_'));
-  let parseNotu = validation.notlar.length ? validation.notlar.join('; ') : '';
-  if (isDynamic) {
-    parseNotu = parseNotu ? `🤖 Yapay Zeka Özel Parser; ${parseNotu}` : '🤖 Yapay Zeka Özel Parser';
+  const parcalar = [];
+  if (KAYNAK_ETIKETI[aday.type]) parcalar.push(KAYNAK_ETIKETI[aday.type]);
+  if (aday.qrDogrulandi) {
+    parcalar.push(aday.qrNotlari && aday.qrNotlari.length ? aday.qrNotlari.join('; ') : 'QR doğrulandı');
   }
+  parcalar.push(...validation.notlar);
+  parcalar.push(...validation.uyarilar.filter((u) => !/kontrol basamağı|Eksik alan/.test(u)).map((u) => `Uyarı: ${u}`));
 
   header.parse_durumu = validation.durum;
-  header.parse_notu = parseNotu || null;
+  header.parse_notu = parcalar.length ? parcalar.join('; ') : null;
   header.kaynak_dosya = kaynak_dosya;
 
   let document_id;
   if (db) document_id = upsertDocument(db, header, items);
+  if (aday.type === 'dynamic' && !aday.llmUretildi) recordDynamicOutcome(aday.name, validation.durum === 'BASARILI');
 
   return {
     durum: validation.durum,
@@ -95,9 +186,23 @@ async function ingestSegment(db, segmentText, kaynak_dosya, rawText, options = {
     belge_no: header.belge_no ?? null,
     ettn: header.ettn ?? null,
     kalem_sayisi: items.length,
-    extractor: dispatched.name,
-    is_dynamic_parser: isDynamic,
+    extractor: aday.name,
+    kaynak: aday.type,
+    skor: validation.skor,
+    is_dynamic_parser: aday.type === 'dynamic' || aday.type === 'llm-direct',
   };
+}
+
+/**
+ * Tek bir belge segmentini (bir faturanın metni) işler.
+ * @returns {Promise<{durum: string, mesaj: string|null, document_id?: number, belge_no?: string|null, ettn?: string|null, kalem_sayisi?: number, extractor?: string}>}
+ */
+async function ingestSegment(db, segmentText, kaynak_dosya, rawText, options = {}, qr = null) {
+  const aday = await extractSegment(segmentText, { rawText, qr, options });
+  if (!aday) {
+    return { durum: 'TANINMAYAN', mesaj: 'Hiçbir extractor bu formatı tanımadı — yeni şablon/extractor gerekebilir' };
+  }
+  return finalizeSegment(db, aday, kaynak_dosya);
 }
 
 /**
@@ -105,12 +210,25 @@ async function ingestSegment(db, segmentText, kaynak_dosya, rawText, options = {
  * @param {string} pdfPath - PDF'in diskteki tam yolu
  * @param {string} kaynak_dosya - DB'ye yazılacak kaynak dosya etiketi
  * @param {object} [options] - Opsiyonel ingest/LLM parametreleri
+ *   (embeddedXml:false / qr:false ilgili kaynağı kapatır)
  * @returns {Promise<{durum: 'BASARILI'|'SUPHELI'|'HATALI'|'TANINMAYAN', mesaj: string|null, belge_sayisi: number, belgeler: object[], document_id?: number, belge_no?: string|null, ettn?: string|null, kalem_sayisi?: number, extractor?: string}>}
  *   Dosyada birden çok fatura varsa `belgeler` her biri için ayrı sonuç
  *   içerir; üst seviye alanlar geriye dönük uyumluluk için ilk belgeden
  *   (durum ise en kötüsünden) türetilir.
  */
 async function ingestPdf(db, pdfPath, kaynak_dosya, options = {}) {
+  const belgeler = [];
+
+  // 1. Gömülü UBL XML: varsa metin ayrıştırmaya gerek yok.
+  const xmlBelgeleri = options.embeddedXml === false ? [] : await readEmbeddedUbl(pdfPath);
+  if (xmlBelgeleri.length) {
+    for (const { result } of xmlBelgeleri) {
+      const validation = validateDocument(result.header, result.items);
+      belgeler.push(finalizeSegment(db, { name: 'embeddedUbl', type: 'xml', result, validation }, kaynak_dosya));
+    }
+    return aggregate(belgeler);
+  }
+
   let text;
   try {
     text = await pdfToText(pdfPath);
@@ -126,12 +244,17 @@ async function ingestPdf(db, pdfPath, kaynak_dosya, options = {}) {
   } catch { /* onarım opsiyonel */ }
 
   const segments = splitIntoDocuments(text);
-  const belgeler = [];
+  const qrs = options.qr === false ? [] : await readPdfQrs(pdfPath, { maxPages: Math.min(50, (text.match(/\f/g) || []).length + 1) });
   for (const seg of segments) {
-    const bResult = await ingestSegment(db, seg, kaynak_dosya, rawText, options);
+    const qr = findQrForSegment(qrs, seg, segments.length === 1);
+    const bResult = await ingestSegment(db, seg, kaynak_dosya, rawText, options, qr);
     belgeler.push(bResult);
   }
 
+  return aggregate(belgeler);
+}
+
+function aggregate(belgeler) {
   if (belgeler.length === 1) {
     return { ...belgeler[0], belge_sayisi: 1, belgeler };
   }
@@ -317,4 +440,4 @@ function saveError(db, kaynak_dosya, mesaj) {
   }
 }
 
-module.exports = { ingestPdf, upsertDocument, saveError, findOrCreateTaraf };
+module.exports = { ingestPdf, extractSegment, upsertDocument, saveError, findOrCreateTaraf };

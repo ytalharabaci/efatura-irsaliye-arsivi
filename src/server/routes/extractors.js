@@ -1,20 +1,22 @@
 'use strict';
 
 const express = require('express');
-const fs = require('node:fs');
 const path = require('node:path');
-const { pdfToText } = require('../../ingest/pdfToText');
-const { anonymizePdfText } = require('../../ingest/anonymize');
+const { pdfToText, pdfToTextRaw } = require('../../ingest/pdfToText');
+const { splitIntoDocuments } = require('../../ingest/splitDocuments');
 const {
   PROVIDERS,
-  generateParserFromLayout,
+  generateValidatedParser,
   resolveLlmConfig,
+  hasUsableConfig,
 } = require('../../ingest/llmParserGenerator');
 const {
-  dispatch,
+  dispatchAll,
   listExtractors,
   registerDynamicExtractor,
-  loadDynamicExtractors,
+  unregisterDynamicExtractor,
+  templateFingerprint,
+  findByFingerprint,
 } = require('../../ingest/extractors/index');
 
 const router = express.Router();
@@ -33,6 +35,7 @@ router.get('/', (req, res) => {
       model: activeConfig.model,
       baseUrl: activeConfig.baseUrl,
       hasApiKey: Boolean(activeConfig.apiKey),
+      usable: hasUsableConfig(activeConfig),
     },
   });
 });
@@ -47,13 +50,30 @@ router.get('/providers', (req, res) => {
 
 /**
  * POST /api/extractors/generate
- * Tanınmayan bir fatura için yerel maskeleme + LLM ile parser üretip kaydeder.
+ * Bir fatura için maskeli metinden LLM ile parser üretir, gerçek metin
+ * üzerinde yerel olarak doğrular ve yalnız eşiği geçerse kaydeder.
+ *
+ * Güvenlik: API anahtarı ve uç nokta (baseUrl) yalnız sunucu ortamından
+ * okunur — istemci başka bir sunucuya istek yönlendiremez ya da anahtar
+ * enjekte edemez. provider/model yalnız beyaz listeden seçilebilir.
  */
 router.post('/generate', async (req, res) => {
-  const { pdfPath, text, name, provider, apiKey, baseUrl, model } = req.body || {};
+  const { pdfPath, text, name, provider, model } = req.body || {};
 
-  let rawText = text;
-  if (!rawText && pdfPath) {
+  if (provider != null && !Object.prototype.hasOwnProperty.call(PROVIDERS, provider)) {
+    return res.status(400).json({ error: `Geçersiz provider. Seçenekler: ${Object.keys(PROVIDERS).join(', ')}` });
+  }
+  const preset = PROVIDERS[provider || resolveLlmConfig().provider];
+  if (model != null && !(preset && preset.models.includes(model))) {
+    return res.status(400).json({ error: `Geçersiz model. Seçenekler: ${preset ? preset.models.join(', ') : '-'}` });
+  }
+  if (name != null && !/^[a-zA-Z0-9_-]{1,64}$/.test(String(name))) {
+    return res.status(400).json({ error: 'Geçersiz extractor adı (harf, rakam, _ ve - kullanılabilir).' });
+  }
+
+  let metin = typeof text === 'string' ? text : null;
+  let rawText = null;
+  if (!metin && pdfPath) {
     // Güvenlik: path traversal saldırısını önle.
     // İstemciden gelen yolu resolve edip proje kökü içinde olup olmadığını ve
     // .pdf uzantısını doğrula. Dışarı çıkan ya da .pdf olmayan yollar reddedilir.
@@ -68,40 +88,59 @@ router.post('/generate', async (req, res) => {
       });
     }
     try {
-      rawText = await pdfToText(resolved);
+      metin = await pdfToText(resolved);
+      rawText = await pdfToTextRaw(resolved).catch(() => null);
     } catch (err) {
       return res.status(400).json({ error: `PDF metni okunamadı: ${err.message}` });
     }
   }
 
-  if (!rawText) {
+  if (!metin) {
     return res.status(400).json({ error: 'pdfPath veya text parametresi gerekli.' });
   }
 
-  const anonymizedText = anonymizePdfText(rawText);
-  const genResult = await generateParserFromLayout(anonymizedText, {
-    provider,
-    apiKey,
-    baseUrl,
-    model,
-  });
-
-  if (!genResult.success) {
-    return res.status(500).json({ error: genResult.error });
+  // Çok faturalı PDF'te ilk belge şablonu temsil eder.
+  const segment = splitIntoDocuments(metin)[0];
+  const options = { provider, model, force: true };
+  if (!hasUsableConfig(resolveLlmConfig(options))) {
+    return res.status(400).json({ error: 'LLM yapılandırılmamış: sunucuda API anahtarı (veya yerel LLM) tanımlı değil.' });
   }
 
-  const extractorName = name || `dynamic_${Date.now()}`;
-  try {
-    const savedPath = registerDynamicExtractor(extractorName, genResult.code);
-    const dispatched = dispatch(rawText);
+  const [mevcutEnIyi] = dispatchAll(segment, { rawText });
+  const gen = await generateValidatedParser({
+    text: segment,
+    rawText,
+    baselineSkor: 0, // elle tetiklenen üretimde mevcut sonuçla yarışma şartı yok; yalnız eşik
+    options,
+  });
 
+  if (!gen.success) {
+    return res.status(422).json({
+      error: gen.error,
+      attempts: gen.attempts,
+      bestSkor: gen.best ? gen.best.validation.skor : null,
+      mevcutSkor: mevcutEnIyi ? mevcutEnIyi.validation.skor : null,
+    });
+  }
+
+  const fingerprint = templateFingerprint(segment);
+  const extractorName = name || findByFingerprint(fingerprint)?.name || `dynamic_${fingerprint}`;
+  try {
+    const savedPath = registerDynamicExtractor(extractorName, gen.code, {
+      fingerprint, provider: gen.provider, model: gen.model,
+      skor: gen.validation.skor, denemeSayisi: gen.attempts,
+    });
     return res.json({
       success: true,
       extractorName,
       savedPath,
-      provider: genResult.provider,
-      model: genResult.model,
-      testResult: dispatched ? dispatched.result : null,
+      provider: gen.provider,
+      model: gen.model,
+      attempts: gen.attempts,
+      durum: gen.validation.durum,
+      skor: gen.validation.skor,
+      mevcutSkor: mevcutEnIyi ? mevcutEnIyi.validation.skor : null,
+      testResult: gen.result,
     });
   } catch (err) {
     return res.status(500).json({ error: `Extractor kaydetme hatası: ${err.message}` });
@@ -114,18 +153,11 @@ router.post('/generate', async (req, res) => {
  */
 router.delete('/dynamic/:name', (req, res) => {
   const { name } = req.params;
-  const safeName = name.replace(/[^a-zA-Z0-9_-]/g, '_');
-  const filePath = path.join(__dirname, '..', '..', 'ingest', 'extractors', 'dynamic', `${safeName}.js`);
-
-  if (!fs.existsSync(filePath)) {
-    return res.status(404).json({ error: 'Dinamik extractor bulunamadı.' });
-  }
-
   try {
-    fs.unlinkSync(filePath);
-    delete require.cache[require.resolve(filePath)];
-    loadDynamicExtractors();
-    return res.json({ success: true, message: `${safeName} extractor'ı silindi.` });
+    if (!unregisterDynamicExtractor(name)) {
+      return res.status(404).json({ error: 'Dinamik extractor bulunamadı.' });
+    }
+    return res.json({ success: true, message: `${name} extractor'ı silindi.` });
   } catch (err) {
     return res.status(500).json({ error: `Silme hatası: ${err.message}` });
   }

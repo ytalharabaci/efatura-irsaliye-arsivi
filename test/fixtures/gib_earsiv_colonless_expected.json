@@ -1,0 +1,58 @@
+{
+  "header": {
+    "belge_tipi": "FATURA",
+    "belge_no": "EAR2026000009999",
+    "ettn": "1e972c66-fee0-455d-a524-d857ebf8d82e",
+    "senaryo": "EARSIVFATURA",
+    "fatura_tipi": "SATIS",
+    "duzenleme_tarihi": "2026-05-09",
+    "duzenleme_zamani": "18:31",
+    "satici_unvan": "ÖRNEK ELEKTRONİK MEHMET ÖRNEK",
+    "satici_adres": "Örnek Mah. Deneme sokak Örnek İşmerkezi no:3/6 No: Örnekilçe/ İstanbul",
+    "satici_vkn_tckn": "98765432109",
+    "satici_vergi_dairesi": "Örnek Dairesi",
+    "satici_telefon": "(555) 111 22 33",
+    "satici_eposta": "info@ornekelektronik.example",
+    "alici_unvan": "Ali Veli DENEME",
+    "alici_adres": "Örnek Sok. A1 2.Blok No:5 İç Kapı No: 3 ÖRNEKMAH ÖRNEKİLÇE Örnekşehir No: 55000 ÖRNEKİLÇE/ Örnekşehir Türkiye",
+    "alici_vkn_tckn": "1234567890",
+    "alici_vergi_dairesi": "ÖRNEKVERGİ",
+    "alici_eposta": "1234567_8901@ornekfatura.example",
+    "alici_telefon": null,
+    "mal_hizmet_toplam_tutari": 300,
+    "hesaplanan_kdv_toplam": 60,
+    "vergiler_dahil_toplam_tutar": 360,
+    "odenecek_tutar": 360,
+    "toplam_iskonto": 0,
+    "kdv_matrahi": 300,
+    "notlar": "Yalnız: ÜÇ YÜZ ALTMIŞ TL. İrsaliye yerine geçer."
+  },
+  "items": [
+    {
+      "sira_no": 1,
+      "aciklama": "XY1000001 Örnek Ürün Bir Güç Çevirici",
+      "miktar": 1,
+      "birim": "Adet",
+      "birim_fiyat": 100,
+      "iskonto_orani": 0,
+      "iskonto_tutari": 0,
+      "net_satir_tutari": 100,
+      "kdv_orani": 20,
+      "kdv_tutari": 20,
+      "mal_hizmet_tutari": 100
+    },
+    {
+      "sira_no": 2,
+      "aciklama": "XY1000002 Örnek Ürün İki uzatma",
+      "miktar": 1,
+      "birim": "Adet",
+      "birim_fiyat": 200,
+      "iskonto_orani": 0,
+      "iskonto_tutari": 0,
+      "net_satir_tutari": 200,
+      "kdv_orani": 20,
+      "kdv_tutari": 40,
+      "mal_hizmet_tutari": 200
+    }
+  ]
+}

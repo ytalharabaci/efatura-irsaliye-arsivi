@@ -1,0 +1,45 @@
+{
+  "header": {
+    "belge_tipi": "FATURA",
+    "belge_no": "ADU2026000000001",
+    "ettn": "be730da7-916d-41f6-adcb-8dcae0118932",
+    "senaryo": "TEMELFATURA",
+    "fatura_tipi": "SATIS",
+    "duzenleme_tarihi": "2026-03-20",
+    "duzenleme_zamani": null,
+    "satici_unvan": "Örnek Telekom Hizmetleri A.Ş.",
+    "satici_adres": "Örnek Cad. Deneme Plaza No:1 Kapı No:A/1 34000 Örnekilçe/ İstanbul / Türkiye",
+    "satici_vkn_tckn": "1111111111",
+    "satici_vergi_dairesi": "Örnek Kurumlar",
+    "satici_telefon": "0850 000 00 00",
+    "satici_eposta": "efatura@ornektelekom.example",
+    "alici_unvan": "ALİ VELİ DENEME",
+    "alici_adres": "ÖRNEK MAH. 1234 SK. NO: 1 DAİRE: 1 ÖRNEK/İL xxxx No: Kapı No: 55000 ÖRNEK/ İl Türkiye",
+    "alici_vkn_tckn": "22222222222",
+    "alici_vergi_dairesi": null,
+    "alici_eposta": null,
+    "alici_telefon": null,
+    "mal_hizmet_toplam_tutari": 500,
+    "hesaplanan_kdv_toplam": 100,
+    "vergiler_dahil_toplam_tutar": 640,
+    "odenecek_tutar": 640,
+    "toplam_iskonto": 0,
+    "kdv_matrahi": 500,
+    "notlar": "Yalnız: altıyüzkırk TL"
+  },
+  "items": [
+    {
+      "sira_no": 1,
+      "aciklama": "Örnek Fiber Paket",
+      "miktar": 1,
+      "birim": null,
+      "birim_fiyat": 500,
+      "iskonto_orani": 0,
+      "iskonto_tutari": 0,
+      "net_satir_tutari": 500,
+      "kdv_orani": 20,
+      "kdv_tutari": 100,
+      "mal_hizmet_tutari": 500
+    }
+  ]
+}

@@ -11,14 +11,16 @@
     "satici_vkn_tckn": "12345678901",
     "satici_vergi_dairesi": "Örnek Vergi Dairesi",
     "satici_telefon": "+905551112233",
+    "satici_adres": "ÖRNEK MAHALLESİ, 10 SK. NO: 5 İÇ KAPI NO: 2 ÖRNEKİLÇE/ÖRNEKŞEHİR Örnekilçe/ Örnekşehir",
     "alici_unvan": "Örnek Sistem Bilişim Danışmanlık Yazılım Donanım A.Ş.",
     "alici_vkn_tckn": "1234567890",
     "alici_vergi_dairesi": "Merkez Vergi Dairesi",
     "alici_eposta": "muhasebe@ornekbilisim.com",
-    "mal_hizmet_toplam_tutari": 15000.00,
-    "hesaplanan_kdv_toplam": 3000.00,
-    "vergiler_dahil_toplam_tutar": 18000.00,
-    "odenecek_tutar": 18000.00,
+    "alici_adres": "200 Sokak No:1 D:1 Örnekmah - Örnekilçe - Örnekşehir Örnekilçe / Örnekşehir Türkiye",
+    "mal_hizmet_toplam_tutari": 15000,
+    "hesaplanan_kdv_toplam": 3000,
+    "vergiler_dahil_toplam_tutar": 18000,
+    "odenecek_tutar": 18000,
     "notlar": "Yalnız: On Sekiz Bin Türk Lirası İrsaliye yerine geçer."
   },
   "items": [
@@ -27,10 +29,10 @@
       "aciklama": "Siber Güvenlik Danışmanlığı Hizmet Bedeli",
       "miktar": 1,
       "birim": "Adet",
-      "birim_fiyat": 15000.00,
+      "birim_fiyat": 15000,
       "kdv_orani": 20,
-      "kdv_tutari": 3000.00,
-      "mal_hizmet_tutari": 15000.00
+      "kdv_tutari": 3000,
+      "mal_hizmet_tutari": 15000
     }
   ]
 }

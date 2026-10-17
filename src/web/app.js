@@ -17,6 +17,15 @@ function hucre(v) {
   return v == null || v === '' ? '-' : esc(String(v));
 }
 
+/** Parse notundan veri kaynağı rozetleri: gömülü XML ve karekod (QR) doğrulaması. */
+function kaynakRozetleri(notu) {
+  if (!notu) return '';
+  let html = '';
+  if (notu.includes('Gömülü UBL XML')) html += '<span class="badge badge-src" title="Alanlar PDF\'e gömülü resmi UBL-TR XML\'den okundu">📄 XML</span>';
+  if (/\bQR\b/.test(notu)) html += '<span class="badge badge-src" title="Başlık alanları GİB karekodu ile doğrulandı">▣ QR</span>';
+  return html;
+}
+
 /**
  * Item için net birim maliyeti ve belirlenen kar oranına göre KDV dahil / hariç satış fiyatını hesaplar.
  * Net Satır Tutarı = (Miktar × Birim Fiyat) - İskonto Tutarı
@@ -191,7 +200,7 @@ function renderBelgeler({ total, data }, page) {
             <td class="num">${d.odenecek_tutar != null ? fmtPara(d.odenecek_tutar) : '-'}</td>
             <td>
               <span class="badge badge-${esc(d.parse_durumu)}">${esc(d.parse_durumu)}</span>
-              ${d.parse_notu && d.parse_notu.includes('Yapay Zeka') ? '<span class="badge badge-ai" title="Yapay Zeka (LLM) ile özel üretilmiş parser kullanıldı">🤖 AI Parser</span>' : ''}
+              ${d.parse_notu && d.parse_notu.includes('Yapay Zeka') ? '<span class="badge badge-ai" title="Yapay Zeka (LLM) ile özel üretilmiş parser kullanıldı">🤖 AI Parser</span>' : ''}${kaynakRozetleri(d.parse_notu)}
             </td>
           </tr>`).join('')}
       </tbody>
@@ -451,7 +460,8 @@ async function yukleDosyalar(files) {
         oncekiSatir = satir;
         const isAi = belge.is_dynamic_parser || (belge.mesaj && belge.mesaj.includes('Yapay Zeka'));
         const aiBadge = isAi ? '<span class="badge badge-ai" title="Yapay Zeka (LLM) tarafından özel parser yazıldı">🤖 AI Parser</span>' : '';
-        const badge = `<span class="badge badge-${esc(belge.durum)}">${esc(belge.durum)}</span>${aiBadge}`;
+        const skorBaslik = belge.skor != null ? ` title="Güven skoru: ${esc(belge.skor)}/100"` : '';
+        const badge = `<span class="badge badge-${esc(belge.durum)}"${skorBaslik}>${esc(belge.durum)}</span>${aiBadge}${kaynakRozetleri(belge.mesaj)}`;
         const dosyaAdMetni = belgeler.length > 1 ? `${f.name} (#${idx + 1})` : f.name;
         satir.innerHTML = `
           <td>${esc(dosyaAdMetni)}</td>
@@ -506,7 +516,7 @@ async function loadGozdenGecir() {
               <td class="kaynak">${hucre(d.kaynak_dosya)}</td>
               <td>
                 <span class="badge badge-${esc(d.parse_durumu)}">${esc(d.parse_durumu)}</span>
-                ${d.parse_notu && d.parse_notu.includes('Yapay Zeka') ? '<span class="badge badge-ai" title="Yapay Zeka (LLM) ile özel üretilmiş parser kullanıldı">🤖 AI Parser</span>' : ''}
+                ${d.parse_notu && d.parse_notu.includes('Yapay Zeka') ? '<span class="badge badge-ai" title="Yapay Zeka (LLM) ile özel üretilmiş parser kullanıldı">🤖 AI Parser</span>' : ''}${kaynakRozetleri(d.parse_notu)}
               </td>
               <td>${hucre(d.parse_notu)}</td>
             </tr>`).join('')}
@@ -582,9 +592,11 @@ function renderDetail(d) {
   return `
     <h2 class="modal-baslik">${esc(d.belge_tipi)} — ${hucre(d.belge_no !== null ? d.belge_no : (d.ettn || '#' + d.id))}
       <span class="badge badge-${esc(d.parse_durumu)}">${esc(d.parse_durumu)}</span>
-      ${isAiParsed ? '<span class="badge badge-ai" title="Yapay Zeka (LLM) ile özel üretilmiş parser kullanıldı">🤖 AI Parser</span>' : ''}
+      ${isAiParsed ? '<span class="badge badge-ai" title="Yapay Zeka (LLM) ile özel üretilmiş parser kullanıldı">🤖 AI Parser</span>' : ''}${kaynakRozetleri(d.parse_notu)}
     </h2>
-    ${isAiParsed ? '<div class="ai-parsed-banner">🤖 <b>Yapay Zeka Özel Parser:</b> Bu PDF standart şablonlar tarafından okunamadığı için Yapay Zeka (LLM) tarafından özel Parser (çıkartıcı kod) üretilerek ayrıştırılmıştır.</div>' : ''}
+    ${isAiParsed ? (d.parse_notu.includes('doğrudan çıkarım')
+    ? '<div class="ai-parsed-banner">🤖 <b>Yapay Zeka Doğrudan Çıkarım:</b> Bu belge yerel LLM tarafından doğrudan okunmuştur; alanları kontrol etmeniz önerilir.</div>'
+    : '<div class="ai-parsed-banner">🤖 <b>Yapay Zeka Özel Parser:</b> Bu PDF standart şablonlar tarafından okunamadığı için Yapay Zeka (LLM) tarafından özel Parser (çıkartıcı kod) üretilerek ayrıştırılmıştır.</div>') : ''}
     <div class="detail-grid">
       ${field('Düzenleme Tarihi', d.duzenleme_tarihi)}
       ${field('Düzenleme Zamanı', d.duzenleme_zamani)}

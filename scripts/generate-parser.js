@@ -1,10 +1,16 @@
 'use strict';
 
 const path = require('node:path');
-const { pdfToText } = require('../src/ingest/pdfToText');
-const { anonymizePdfText } = require('../src/ingest/anonymize');
-const { generateParserFromLayout } = require('../src/ingest/llmParserGenerator');
-const { registerDynamicExtractor, dispatch } = require('../src/ingest/extractors/index');
+const { pdfToText, pdfToTextRaw } = require('../src/ingest/pdfToText');
+const { splitIntoDocuments } = require('../src/ingest/splitDocuments');
+const { maskForLlm } = require('../src/ingest/anonymize');
+const { generateValidatedParser } = require('../src/ingest/llmParserGenerator');
+const {
+  registerDynamicExtractor,
+  dispatchAll,
+  templateFingerprint,
+  findByFingerprint,
+} = require('../src/ingest/extractors/index');
 
 async function main() {
   const args = process.argv.slice(2);
@@ -14,53 +20,50 @@ async function main() {
   }
 
   const pdfPath = path.resolve(args[0]);
-  const customName = args[1] || `dynamic_${Date.now()}`;
 
-  console.log(`[1/5] PDF metin katmanı okunuyor: ${pdfPath}`);
-  let rawText;
+  console.log(`[1/4] PDF metin katmanı okunuyor: ${pdfPath}`);
+  let text;
+  let rawText = null;
   try {
-    rawText = await pdfToText(pdfPath);
+    text = splitIntoDocuments(await pdfToText(pdfPath))[0];
+    rawText = await pdfToTextRaw(pdfPath).catch(() => null);
   } catch (err) {
     console.error('PDF okunurken hata oluştu:', err.message);
     process.exit(1);
   }
 
-  console.log('[2/5] Metin KVKK uyumlu olarak maskeleniyor...');
-  const anonymizedText = anonymizePdfText(rawText);
+  const fingerprint = templateFingerprint(text);
+  const customName = args[1] || findByFingerprint(fingerprint)?.name || `dynamic_${fingerprint}`;
 
-  console.log('\n--- MASKELEME İSKELETİ (LLM\'e Gönderilen Metin) ---');
-  console.log(anonymizedText.slice(0, 800));
-  if (anonymizedText.length > 800) console.log('... [kırpıldı]');
+  const [mevcut] = dispatchAll(text, { rawText });
+  console.log(mevcut
+    ? `      Mevcut en iyi extractor: ${mevcut.name} → ${mevcut.validation.durum}, skor ${mevcut.validation.skor}`
+    : '      Mevcut extractor\'lar bu şablonu tanımıyor.');
+
+  console.log('[2/4] LLM\'e gidecek sentetik maskeli metin (örnek — her çağrıda yeniden üretilir):');
+  console.log('---------------------------------------------------');
+  const ornek = maskForLlm(text).masked;
+  console.log(ornek.slice(0, 1500));
+  if (ornek.length > 1500) console.log('... [kırpıldı]');
   console.log('---------------------------------------------------\n');
 
-  console.log('[3/5] LLM API\'sinden JS Extractor kütüphanesi üretilmesi isteniyor...');
-  const genResult = await generateParserFromLayout(anonymizedText);
-
-  if (!genResult.success) {
-    console.error('❌ Parser üretimi başarısız:', genResult.error);
+  console.log('[3/4] LLM ile parser üretilip gerçek metin üzerinde YEREL olarak doğrulanıyor...');
+  const gen = await generateValidatedParser({ text, rawText, options: { force: true } });
+  if (!gen.success) {
+    console.error(`❌ Parser üretimi başarısız (${gen.attempts} deneme): ${gen.error}`);
+    if (gen.best) console.error(`   En iyi deneme skoru: ${gen.best.validation.skor}`);
     process.exit(1);
   }
 
-  console.log('[4/5] Üretilen JS kodu doğrulanıp diske kaydediliyor...');
-  try {
-    const savedPath = registerDynamicExtractor(customName, genResult.code);
-    console.log(`✅ Extractor başarıyla kaydedildi: ${savedPath}`);
-  } catch (err) {
-    console.error('❌ Extractor kaydetme hatası:', err.message);
-    process.exit(1);
-  }
-
-  console.log('[5/5] Yeni extractor sunucuda YEREL olarak orijinal PDF üzerinde test ediliyor...');
-  const dispatched = dispatch(rawText);
-
-  if (dispatched) {
-    console.log(`\n🎉 BAŞARILI! Orijinal fatura sunucudan hiç çıkmadan yerel olarak ayrıştırıldı:`);
-    console.log(`Kullanılan Extractor: ${dispatched.name}`);
-    console.log('Başlık Bilgileri:', JSON.stringify(dispatched.result.header, null, 2));
-    console.log(`Toplam ${dispatched.result.items.length} adet kalem bulundu.`);
-  } else {
-    console.error('⚠️ Extractor kaydedildi ancak yerel test eşleşmedi.');
-  }
+  console.log('[4/4] Doğrulanan parser kaydediliyor...');
+  const savedPath = registerDynamicExtractor(customName, gen.code, {
+    fingerprint, provider: gen.provider, model: gen.model,
+    skor: gen.validation.skor, denemeSayisi: gen.attempts,
+  });
+  console.log(`✅ Kaydedildi: ${savedPath}`);
+  console.log(`   ${gen.validation.durum}, skor ${gen.validation.skor}, ${gen.attempts} deneme (${gen.provider}/${gen.model})`);
+  console.log(`   ${gen.result.items.length} kalem; belge no: ${gen.result.header.belge_no ?? '-'}`);
+  if (gen.validation.notlar.length) console.log(`   Notlar: ${gen.validation.notlar.join('; ')}`);
 }
 
 main().catch((err) => {

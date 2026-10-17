@@ -6,28 +6,63 @@ const path = require('path');
 const fs = require('fs');
 const execFileAsync = promisify(execFile);
 
-// Windows'ta C:\poppler altındaki aday yolları denetle (MiKTeX sürümü -layout desteklemez)
-function resolvePdftotextBin() {
-  if (process.env.PDFTOTEXT_PATH && fs.existsSync(process.env.PDFTOTEXT_PATH)) {
-    return process.env.PDFTOTEXT_PATH;
+/**
+ * Bir poppler aracının (pdftotext, pdftoppm, pdfdetach) yolunu çözer.
+ * Windows'ta C:\poppler altındaki aday yolları denetler (MiKTeX sürümü
+ * -layout desteklemez). PDFTOTEXT_PATH ayarlıysa diğer araçlar da aynı
+ * dizinde aranır.
+ */
+function resolvePopplerBin(tool = 'pdftotext') {
+  const ozel = process.env.PDFTOTEXT_PATH;
+  if (ozel && fs.existsSync(ozel)) {
+    if (tool === 'pdftotext') return ozel;
+    const kardes = path.join(path.dirname(ozel), tool + path.extname(ozel));
+    if (fs.existsSync(kardes)) return kardes;
   }
   if (process.platform === 'win32') {
     const candidates = [
-      'C:\\poppler\\pdftotext.exe',
-      'C:\\poppler\\Library\\bin\\pdftotext.exe',
-      'C:\\poppler\\bin\\pdftotext.exe',
+      `C:\\poppler\\${tool}.exe`,
+      `C:\\poppler\\Library\\bin\\${tool}.exe`,
+      `C:\\poppler\\bin\\${tool}.exe`,
     ];
     for (const cand of candidates) {
       if (fs.existsSync(cand)) return cand;
     }
   }
-  return process.env.PDFTOTEXT_PATH || 'pdftotext';
+  return tool === 'pdftotext' && ozel ? ozel : tool;
+}
+
+function resolvePdftotextBin() {
+  return resolvePopplerBin('pdftotext');
+}
+
+// xpdf'in pdftotext'i -layout modunda sütunları satırlardan bağımsız bloklar
+// halinde dizebilir (tutar sütunu kalem satırlarından kopar); extractor'lar
+// poppler çıktısına göre yazıldığından bir kez uyarılır.
+let surumDenetlendi = false;
+async function warnIfXpdf(bin) {
+  if (surumDenetlendi) return;
+  surumDenetlendi = true;
+  let cikti;
+  try {
+    const { stdout, stderr } = await execFileAsync(bin, ['-v'], { encoding: 'utf8', timeout: 5000 });
+    cikti = `${stdout}${stderr}`;
+  } catch (err) {
+    // xpdf -v sıfırdan farklı kodla çıkar; sürüm metni yine err.stdout/stderr'dedir.
+    cikti = `${err.stdout || ''}${err.stderr || ''}`;
+  }
+  if (/xpdf/i.test(cikti) && !/poppler/i.test(cikti)) {
+    console.warn(`[pdfToText] UYARI: ${bin} xpdf sürümü; tablo düzeni bozulabilir. Poppler kurun (C:\\poppler) veya PDFTOTEXT_PATH ayarlayın.`);
+  }
 }
 
 async function runPdftotext(pdfPath, modeArgs) {
   const bin = resolvePdftotextBin();
+  await warnIfXpdf(bin);
   try {
-    const { stdout } = await execFileAsync(bin, [...modeArgs, pdfPath, '-'], {
+    // -enc UTF-8: xpdf'in pdftotext'i (ör. Git for Windows ile gelen) varsayılan
+    // olarak Latin-1 üretir; Türkçe karakterler (ş, ğ, ı, İ) kaybolur.
+    const { stdout } = await execFileAsync(bin, [...modeArgs, '-enc', 'UTF-8', pdfPath, '-'], {
       encoding: 'utf8',
       maxBuffer: 10 * 1024 * 1024,
     });
@@ -65,4 +100,4 @@ async function pdfToTextRaw(pdfPath) {
   return runPdftotext(pdfPath, ['-raw']);
 }
 
-module.exports = { pdfToText, pdfToTextRaw };
+module.exports = { pdfToText, pdfToTextRaw, resolvePopplerBin };
